@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>Здравствуйте, {{ user.username }}!</h1>
+    <h2>Записи о посещаемости:</h2>
+    {% for post in posts %}
+    <div>
+        <p><b>{{ post.author.username }}</b>: {{ post.body }}</p>
+    </div>
+    {% endfor %}
+{% endblock %}
+    

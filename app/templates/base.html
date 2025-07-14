@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+    <head>
+        {% if title %}
+        <title>{{ title }} - Посещаемость</title>
+        {% else %}
+        <title>Добро пожаловать на сайт Посещаемость</title>
+        {% endif %}
+    </head>
+    <body>
+        <div>Сайт Посещаемости: <a href="/index">Главная</a></div>
+        <hr>
+        {% block content %}{% endblock %}
+    </body>
+</html>
+    
