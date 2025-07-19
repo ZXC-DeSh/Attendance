@@ -2,11 +2,41 @@
 
 {% block content %}
     <h1>Здравствуйте, {{ current_user.username }}!</h1>
-    <h2>Записи о посещаемости:</h2>
-    {% for post in posts %}
-    <div>
-        <p><b>{{ post.author.username }}</b>: {{ post.body }}</p>
-    </div>
-    {% endfor %}
+
+    {% if current_user.role == 'student' %}
+        <h2>Ваши записи о посещаемости:</h2>
+        {% if attendance_records %}
+            <ul>
+                {% for record in attendance_records %}
+                    <li>
+                        <b>{{ record.course.name }}</b> on {{ record.date.strftime('%Y-%m-%d %H:%M') }}: 
+                        <span style="color: 
+                            {% if record.status == 'present' %}green
+                            {% elif record.status == 'absent' %}red
+                            {% elif record.status == 'late' %}orange
+                            {% else %}blue
+                            {% endif %};">
+                            {{ record.status.capitalize() }}
+                        </span>
+                        {% if record.notes %}(Notes: {{ record.notes }}){% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>У вас пока нет записей о посещаемости.</p>
+        {% endif %}
+    {% elif current_user.role == 'teacher' %}
+        <h2>Курсы, которые вы преподаете:</h2>
+        {% if teaching_courses %}
+            <ul>
+                {% for course in teaching_courses %}
+                    <li><a href="{{ url_for('edit_course', course_id=course.id) }}">{{ course.name }}</a></li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>Вы пока не преподаете никаких курсов.</p>
+        {% endif %}
+    {% else %}
+        <p>Добро пожаловать на сайт посещаемости!</p>
+    {% endif %}
 {% endblock %}
-    
