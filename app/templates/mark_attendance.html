@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h1>{{ title }}</h1>
+    <form action="" method="post">
+        {{ form.hidden_tag() }}
+        <p>
+            {{ form.course_id.label }}<br>
+            {{ form.course_id(id="course_select") }}<br>
+            {% for error in form.course_id.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.student_id.label }}<br>
+            {{ form.student_id(id="student_select") }}<br>
+            {% for error in form.student_id.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.status.label }}<br>
+            {{ form.status() }}<br>
+            {% for error in form.status.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>
+            {{ form.notes.label }}<br>
+            {{ form.notes(cols=50, rows=3) }}<br>
+            {% for error in form.notes.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </p>
+        <p>{{ form.submit() }}</p>
+    </form>
+
+    <script type="text/javascript">
+        $(function() {
+            $('#course_select').change(function() {
+                var course_id = $(this).val();
+                if (course_id) {
+                    $.getJSON('/_get_students_for_course', {course_id: course_id}, function(data) {
+                        var student_select = $('#student_select');
+                        student_select.empty();
+                        $.each(data.students, function(key, val) {
+                            student_select.append($('<option></option>').attr('value', val.id).text(val.username));
+                        });
+                    });
+                } else {
+                    $('#student_select').empty();
+                }
+            });
+            if ($('#course_select').val()) {
+                $('#course_select').trigger('change');
+            }
+        });
+    </script>
+{% endblock %}

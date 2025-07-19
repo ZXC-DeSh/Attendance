@@ -6,6 +6,7 @@
         {% else %}
         <title>Добро пожаловать на сайт Посещаемость</title>
         {% endif %}
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     </head>
     <body>
         <div>
@@ -15,20 +16,24 @@
             <a href="{{ url_for('login') }}">Login</a>
             {% else %}
             <a href="{{ url_for('user', username=current_user.username) }}">Profile</a>
+            <a href="{{ url_for('courses') }}">Courses</a>
+            {% if current_user.role == 'teacher' %}
+            <a href="{{ url_for('mark_attendance') }}">Mark Attendance</a>
+            <a href="{{ url_for('assign_to_course') }}">Assign to Course</a>
+            {% endif %}
             <a href="{{ url_for('logout') }}">Logout</a>
             {% endif %}
         </div>
          <hr>
         {% with messages = get_flashed_messages() %}
         {% if messages %}
-        <ul>
+        <div class="flash-messages">
             {% for message in messages %}
-            <li>{{ message }}</li>
+            <div class="alert alert-{{ message.category }}">{{ message }}</div>
             {% endfor %}
-        </ul>
+        </div>
         {% endif %}
         {% endwith %}
         {% block content %}{% endblock %}
     </body>
 </html>
-    
