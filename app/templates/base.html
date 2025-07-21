@@ -17,6 +17,7 @@
             {% else %}
             <a href="{{ url_for('user', username=current_user.username) }}">Profile</a>
             <a href="{{ url_for('courses') }}">Courses</a>
+            <a href="{{ url_for('chat', recipient_id=current_user.id) }}">Chat</a>
             {% if current_user.role == 'teacher' %}
             <a href="{{ url_for('mark_attendance') }}">Mark Attendance</a>
             <a href="{{ url_for('assign_to_course') }}">Assign to Course</a>

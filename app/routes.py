@@ -1,11 +1,12 @@
 from flask import render_template, flash, redirect, url_for, request
 from app import app, db
-from app.forms import LoginForm, RegistrationForm, EditProfileForm, CourseForm, MarkAttendanceForm, AssignCourseForm
+from app.forms import LoginForm, RegistrationForm, EditProfileForm, CourseForm, MarkAttendanceForm, AssignCourseForm, MessageForm
 from flask_login import current_user, login_user, logout_user, login_required
 import sqlalchemy as sa
-from app.models import User, Post, Course, AttendanceRecord
+from app.models import User, Course, AttendanceRecord, Message
 from urllib.parse import urlsplit
 from datetime import datetime, timezone
+
 
 @app.route('/')
 @app.route('/index')
@@ -17,14 +18,14 @@ def index():
             .where(AttendanceRecord.student_id == current_user.id)
             .order_by(AttendanceRecord.date.desc())
         ).all()
-        return render_template('index.html', title='Главная', attendance_records=attendance_records)
+        return render_template('index.html', title='Главная', attendance_records=attendance_records, user=current_user)
     else: # Для учителей или других ролей
         teaching_courses = db.session.scalars(
             sa.select(Course)
             .join(User.teaching_courses)
             .where(User.id == current_user.id)
         ).all()
-        return render_template('index.html', title='Главная', teaching_courses=teaching_courses)
+        return render_template('index.html', title='Главная', teaching_courses=teaching_courses, user=current_user)
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -71,7 +72,6 @@ def user(username):
     
     enrolled_courses = []
     teaching_courses = []
-    posts = [] # Инициализируем posts, чтобы избежать ошибки в шаблоне, если он используется
 
     if user.role == 'student':
         enrolled_courses = db.session.scalars(
@@ -84,16 +84,16 @@ def user(username):
             .where(AttendanceRecord.student_id == user.id)
             .order_by(AttendanceRecord.date.desc())
         ).all()
-        return render_template('user.html', user=user, enrolled_courses=enrolled_courses, attendance_records=attendance_records, posts=posts)
+        return render_template('user.html', user=user, enrolled_courses=enrolled_courses, attendance_records=attendance_records,)
     elif user.role == 'teacher':
         teaching_courses = db.session.scalars(
             sa.select(Course)
             .join(User.teaching_courses)
             .where(User.id == user.id)
         ).all()
-        return render_template('user.html', user=user, teaching_courses=teaching_courses, posts=posts)
+        return render_template('user.html', user=user, teaching_courses=teaching_courses,)
     else:
-        return render_template('user.html', user=user, posts=posts) # Для других ролей
+        return render_template('user.html', user=user,) # Для других ролей
 
 
 @app.before_request
@@ -314,3 +314,20 @@ def get_students_for_course():
         if course:
             students_data = [{'id': s.id, 'username': s.username} for s in course.students]
     return {'students': students_data}
+
+@app.route('/chat/<int:recipient_id>', methods=['GET', 'POST'])
+@login_required
+def chat(recipient_id):
+    form = MessageForm()
+    if form.validate_on_submit():
+        message = Message(sender_id=current_user.id, recipient_id=recipient_id, body=form.message.data)
+        db.session.add(message)
+        db.session.commit()
+        flash('Your message has been sent!')
+        return redirect(url_for('chat', recipient_id=recipient_id))
+    messages = Message.query.filter(
+        ((Message.sender_id == current_user.id) & (Message.recipient_id == recipient_id)) |
+        ((Message.sender_id == recipient_id) & (Message.recipient_id == current_user.id))
+    ).order_by(Message.timestamp.asc()).all()
+    recipient = User.query.get(recipient_id)
+    return render_template('chat.html', form=form, messages=messages, recipient=recipient)

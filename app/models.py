@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from app import db
@@ -7,6 +7,19 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from app import login
 from hashlib import md5
+
+class Message(db.Model):
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    sender_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), nullable=False)
+    recipient_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), nullable=False)
+    body: so.Mapped[str] = so.mapped_column(sa.String(140), nullable=False)
+    timestamp: so.Mapped[datetime] = so.mapped_column(sa.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
+    
+    sender: so.Mapped['User'] = so.relationship('User', foreign_keys=[sender_id], back_populates='sent_messages')
+    recipient: so.Mapped['User'] = so.relationship('User', foreign_keys=[recipient_id], back_populates='received_messages')
+    
+    def __repr__(self) -> str:
+        return f'<Message {self.body}>'
 
 # Таблица связей между учителями и курсами, которые они преподают
 teacher_course_association = sa.Table(
@@ -29,123 +42,113 @@ class User(UserMixin, db.Model):
     username: so.Mapped[str] = so.mapped_column(sa.String(64), index=True, unique=True)
     email: so.Mapped[str] = so.mapped_column(sa.String(120), index=True, unique=True)
     password_hash: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
-    
-    # Добавляем поле для роли пользователя: 'student' или 'teacher'
-    role: so.Mapped[str] = so.mapped_column(sa.String(20), default='student') 
-
-    posts: so.WriteOnlyMapped['Post'] = so.relationship(back_populates='author')
+    role: so.Mapped[str] = so.mapped_column(sa.String(20), default='student')
     about_me: so.Mapped[Optional[str]] = so.mapped_column(sa.String(140))
-    last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(
-        default=lambda: datetime.now(timezone.utc))
+    last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
+    
+    # Связи
+    # posts: so.WriteOnlyMapped['Post'] = so.relationship(back_populates='author')
 
-    # Связь для учителей и курсов, которые они преподают (многие ко многим)
-    # Если user.role == 'teacher'
+    sent_messages: so.Mapped[List['Message']] = so.relationship(
+        'Message', 
+        foreign_keys='Message.sender_id',
+        back_populates='sender'
+    )
+    received_messages: so.Mapped[List['Message']] = so.relationship(
+        'Message', 
+        foreign_keys='Message.recipient_id',
+        back_populates='recipient'
+    )
+    
     teaching_courses: so.WriteOnlyMapped['Course'] = so.relationship(
         secondary=teacher_course_association,
         back_populates='teachers'
     )
-
-    # Связь для учеников и курсов, на которые они записаны (многие ко многим)
-    # Если user.role == 'student'
     enrolled_courses: so.WriteOnlyMapped['Course'] = so.relationship(
         secondary=student_course_association,
         back_populates='students'
     )
-
-    # Связь с записями о посещаемости (только для студентов)
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='student',
-        cascade="all, delete-orphan" # Удалять записи о посещаемости при удалении студента
+        cascade="all, delete-orphan"
     )
 
-    def __repr__(self):
-        return '<User {}>'.format(self.username)
+    def __repr__(self) -> str:
+        return f'<User  {self.username}>'
     
-    def set_password(self, password):
+    def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
 
-    def check_password(self, password):
+    def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
     
-    def avatar(self, size):
+    def avatar(self, size: int) -> str:
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
 
     # Методы для управления курсами (для учителей)
-    def add_teaching_course(self, course):
+    def add_teaching_course(self, course: 'Course') -> None:
         if self.role == 'teacher' and course not in self.teaching_courses:
-            self.teaching_courses.append(course) # Используем append для коллекций
+            self.teaching_courses.append(course)
 
-    def remove_teaching_course(self, course):
+    def remove_teaching_course(self, course: 'Course') -> None:
         if self.role == 'teacher' and course in self.teaching_courses:
-            self.teaching_courses.remove(course) # Используем remove для коллекций
+            self.teaching_courses.remove(course)
 
     # Методы для управления курсами (для студентов)
-    def enroll_in_course(self, course):
+    def enroll_in_course(self, course: 'Course') -> None:
         if self.role == 'student' and course not in self.enrolled_courses:
-            self.enrolled_courses.add(course)
+            self.enrolled_courses.append(course)
 
-    def unenroll_from_course(self, course):
+    def unenroll_from_course(self, course: 'Course') -> None:
         if self.role == 'student' and course in self.enrolled_courses:
             self.enrolled_courses.remove(course)
 
-class Post(db.Model):
-    id: so.Mapped[int] = so.mapped_column(primary_key=True)
-    body: so.Mapped[str] = so.mapped_column(sa.String(140))
-    timestamp: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
-    user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id), index=True)
-    author: so.Mapped[User] = so.relationship(back_populates='posts')
+# class Post(db.Model):
+#     id: so.Mapped[int] = so.mapped_column(primary_key=True)
+#     body: so.Mapped[str] = so.mapped_column(sa.String(140))
+#     timestamp: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
+#     user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id), index=True)
+#     author: so.Mapped[User] = so.relationship(back_populates='posts')
 
-    def __repr__(self):
-        return '<Post {}>'.format(self.body)
+#     def __repr__(self) -> str:
+#         return f'<Post {self.body}>'
 
 class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     name: so.Mapped[str] = so.mapped_column(sa.String(100), unique=True, index=True)
     description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
 
-    # Связь с учителями, которые преподают этот курс
+    # Связи
     teachers: so.WriteOnlyMapped['User'] = so.relationship(
         secondary=teacher_course_association,
         back_populates='teaching_courses'
     )
-
-    # Связь с учениками, записанными на этот курс
     students: so.WriteOnlyMapped['User'] = so.relationship(
         secondary=student_course_association,
         back_populates='enrolled_courses'
     )
-
-    # Связь с записями о посещаемости для этого курса
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='course',
         cascade="all, delete-orphan"
     )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<Course {self.name}>'
 
 class AttendanceRecord(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
-    
-    # Связь с учеником
     student_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), index=True)
     student: so.Mapped['User'] = so.relationship(back_populates='attendance_records')
-
-    # Связь с курсом
     course_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('course.id'), index=True)
     course: so.Mapped['Course'] = so.relationship(back_populates='attendance_records')
-
-    date: so.Mapped[datetime] = so.mapped_column(
-        index=True, default=lambda: datetime.now(timezone.utc))
-    
-    # Статус посещаемости: 'present', 'absent', 'late', 'excused'
-    status: so.Mapped[str] = so.mapped_column(sa.String(20), default='present') 
+    date: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
+    status: so.Mapped[str] = so.mapped_column(sa.String(20), default='present')
     notes: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'<AttendanceRecord for {self.student.username} on {self.course.name} at {self.date.strftime("%Y-%m-%d %H:%M")}>'
-    
+
 @login.user_loader
-def load_user(id):
-    return db.session.get(User, int(id))
+def load_user(id: int) -> Optional[User]:
+    return db.session.get(User, id)

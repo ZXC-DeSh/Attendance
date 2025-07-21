@@ -25,6 +25,7 @@
         {% else %}
             <p>У вас пока нет записей о посещаемости.</p>
         {% endif %}
+        
     {% elif current_user.role == 'teacher' %}
         <h2>Курсы, которые вы преподаете:</h2>
         {% if teaching_courses %}
