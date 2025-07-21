@@ -86,3 +86,12 @@ class AssignCourseForm(FlaskForm):
     user_id = SelectField('User', coerce=int, validators=[DataRequired()])
     course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Assign')
+
+# class PostForm(FlaskForm):
+#     post = TextAreaField('Say something', validators=[
+#         DataRequired(), Length(min=1, max=140)])
+#     submit = SubmitField('Submit')
+
+class MessageForm(FlaskForm):
+    message = TextAreaField('Message', validators=[DataRequired(), Length(max=140)])
+    submit = SubmitField('Send')
