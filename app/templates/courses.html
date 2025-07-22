@@ -20,6 +20,12 @@
                 </li>
             {% endfor %}
         </ul>
+        {% if prev_url %}
+        <a href="{{ prev_url }}">Предыдущие курсы</a>
+        {% endif %}
+        {% if next_url %}
+        <a href="{{ next_url }}">Следующие курсы</a>
+        {% endif %}
     {% else %}
         <p>No courses available yet.</p>
     {% endif %}

@@ -60,13 +60,16 @@ class User(UserMixin, db.Model):
         back_populates='recipient'
     )
     
-    teaching_courses: so.WriteOnlyMapped['Course'] = so.relationship(
+    teaching_courses: so.Mapped[List['Course']] = so.relationship(
         secondary=teacher_course_association,
-        back_populates='teachers'
+        back_populates='teachers',
+        collection_class=list
     )
-    enrolled_courses: so.WriteOnlyMapped['Course'] = so.relationship(
+    
+    enrolled_courses: so.Mapped[List['Course']] = so.relationship(
         secondary=student_course_association,
-        back_populates='students'
+        back_populates='students',
+        collection_class=list
     )
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='student',
@@ -86,33 +89,31 @@ class User(UserMixin, db.Model):
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
 
-    # Методы для управления курсами (для учителей)
+        # Методы для управления курсами (для учителей)
     def add_teaching_course(self, course: 'Course') -> None:
-        if self.role == 'teacher' and course not in self.teaching_courses:
+        if self.role != 'teacher':
+            raise ValueError("Only teachers can be assigned to teaching courses")
+        if course not in self.teaching_courses:
             self.teaching_courses.append(course)
+            db.session.commit()
 
     def remove_teaching_course(self, course: 'Course') -> None:
-        if self.role == 'teacher' and course in self.teaching_courses:
+        if course in self.teaching_courses:
             self.teaching_courses.remove(course)
+            db.session.commit()
 
     # Методы для управления курсами (для студентов)
     def enroll_in_course(self, course: 'Course') -> None:
-        if self.role == 'student' and course not in self.enrolled_courses:
+        if self.role != 'student':
+            raise ValueError("Only students can enroll in courses")
+        if course not in self.enrolled_courses:
             self.enrolled_courses.append(course)
+            db.session.commit()
 
     def unenroll_from_course(self, course: 'Course') -> None:
-        if self.role == 'student' and course in self.enrolled_courses:
+        if course in self.enrolled_courses:
             self.enrolled_courses.remove(course)
-
-# class Post(db.Model):
-#     id: so.Mapped[int] = so.mapped_column(primary_key=True)
-#     body: so.Mapped[str] = so.mapped_column(sa.String(140))
-#     timestamp: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
-#     user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id), index=True)
-#     author: so.Mapped[User] = so.relationship(back_populates='posts')
-
-#     def __repr__(self) -> str:
-#         return f'<Post {self.body}>'
+            db.session.commit()
 
 class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
@@ -120,14 +121,19 @@ class Course(db.Model):
     description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
 
     # Связи
-    teachers: so.WriteOnlyMapped['User'] = so.relationship(
+    teachers: so.Mapped[List['User']] = so.relationship(
         secondary=teacher_course_association,
-        back_populates='teaching_courses'
+        back_populates='teaching_courses',
+        collection_class=list
     )
-    students: so.WriteOnlyMapped['User'] = so.relationship(
+    
+    students: so.Mapped[List['User']] = so.relationship(
         secondary=student_course_association,
-        back_populates='enrolled_courses'
+        back_populates='enrolled_courses',
+        collection_class=list,
+        lazy='joined'
     )
+
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='course',
         cascade="all, delete-orphan"
