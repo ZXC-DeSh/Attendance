@@ -49,6 +49,12 @@
         {% else %}
             <p>Нет записей о посещаемости.</p>
         {% endif %}
+        {% if prev_url %}
+        <a href="{{ prev_url }}">Предыдущие записи/курсы</a>
+        {% endif %}
+        {% if next_url %}
+        <a href="{{ next_url }}">Следующие записи/курсы</a>
+        {% endif %}
 
     {% elif user.role == 'teacher' %}
         <h2>Преподает курсы:</h2>
@@ -60,6 +66,12 @@
             </ul>
         {% else %}
             <p>Не преподает никаких курсов.</p>
+        {% endif %}
+        {% if prev_url %}
+        <a href="{{ prev_url }}">Предыдущие курсы</a>
+        {% endif %}
+        {% if next_url %}
+        <a href="{{ next_url }}">Следующие курсы</a>
         {% endif %}
     {% endif %}
 {% endblock %}

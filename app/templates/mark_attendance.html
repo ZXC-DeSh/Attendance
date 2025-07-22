@@ -4,20 +4,24 @@
     <h1>{{ title }}</h1>
     <form action="" method="post">
         {{ form.hidden_tag() }}
-        <p>
-            {{ form.course_id.label }}<br>
-            {{ form.course_id(id="course_select") }}<br>
+        
+        <div class="form-group">
+            {{ form.course_id.label }}
+            {{ form.course_id(class="form-control", id="course_select") }} {# Добавляем ID для удобства #}
             {% for error in form.course_id.errors %}
-            <span style="color: red;">[{{ error }}]</span>
+            <div class="invalid-feedback" style="display: block;">{{ error }}</div>
             {% endfor %}
-        </p>
-        <p>
-            {{ form.student_id.label }}<br>
-            {{ form.student_id(id="student_select") }}<br>
+        </div>
+        
+        <div class="form-group">
+            {{ form.student_id.label }}
+            {# Удаляем if/else, так как JS будет управлять disabled состоянием #}
+            {{ form.student_id(class="form-control", id="student_select", disabled=true) }} {# Добавляем ID и изначально отключаем #}
             {% for error in form.student_id.errors %}
-            <span style="color: red;">[{{ error }}]</span>
+            <div class="invalid-feedback" style="display: block;">{{ error }}</div>
             {% endfor %}
-        </p>
+        </div>
+
         <p>
             {{ form.status.label }}<br>
             {{ form.status() }}<br>
@@ -36,23 +40,44 @@
     </form>
 
     <script type="text/javascript">
-        $(function() {
-            $('#course_select').change(function() {
-                var course_id = $(this).val();
-                if (course_id) {
-                    $.getJSON('/_get_students_for_course', {course_id: course_id}, function(data) {
-                        var student_select = $('#student_select');
-                        student_select.empty();
-                        $.each(data.students, function(key, val) {
-                            student_select.append($('<option></option>').attr('value', val.id).text(val.username));
-                        });
+        $(document).ready(function() {
+            // Получаем ссылки на элементы select
+            var courseSelect = $('#course_select');
+            var studentSelect = $('#student_select');
+
+            // Функция для загрузки студентов
+            function loadStudents(courseId) {
+                if (courseId) {
+                    $.getJSON("{{ url_for('get_students_for_course') }}", {course_id: courseId}, function(data) {
+                        studentSelect.empty(); // Очищаем текущие опции
+                        if (data.students && data.students.length > 0) {
+                            $.each(data.students, function(index, student) {
+                                studentSelect.append($('<option></option>').val(student.id).text(student.username));
+                            });
+                            studentSelect.prop('disabled', false); // Включаем select
+                        } else {
+                            studentSelect.append($('<option></option>').val('').text('No students enrolled'));
+                            studentSelect.prop('disabled', true); // Отключаем select, если нет студентов
+                        }
                     });
                 } else {
-                    $('#student_select').empty();
+                    studentSelect.empty();
+                    studentSelect.append($('<option></option>').val('').text('Please select a course first'));
+                    studentSelect.prop('disabled', true); // Отключаем select
                 }
+            }
+
+            // Обработчик изменения выбора курса
+            courseSelect.change(function() {
+                var selectedCourseId = $(this).val();
+                loadStudents(selectedCourseId);
             });
-            if ($('#course_select').val()) {
-                $('#course_select').trigger('change');
+
+            // При загрузке страницы, если курс уже выбран (например, после ошибки валидации формы),
+            // загружаем студентов для этого курса.
+            // Это важно, если форма отправляется с ошибками, и мы хотим сохранить выбранный курс.
+            if (courseSelect.val()) {
+                loadStudents(courseSelect.val());
             }
         });
     </script>

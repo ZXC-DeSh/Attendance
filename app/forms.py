@@ -16,9 +16,7 @@ class RegistrationForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField(
-        'Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    # Добавляем поле для выбора роли при регистрации
+    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
     role = SelectField('Role', choices=[('student', 'Student'), ('teacher', 'Teacher')], validators=[DataRequired()])
     submit = SubmitField('Register')
 
@@ -50,7 +48,6 @@ class EditProfileForm(FlaskForm):
             if user is not None:
                 raise ValidationError('Please use a different username.')
 
-# Новая форма для создания/редактирования курсов
 class CourseForm(FlaskForm):
     name = StringField('Course Name', validators=[DataRequired()])
     description = TextAreaField('Description', validators=[Length(min=0, max=256)])
@@ -67,30 +64,22 @@ class CourseForm(FlaskForm):
             if course is not None:
                 raise ValidationError('Course with this name already exists.')
 
-# Новая форма для отметки посещаемости
 class MarkAttendanceForm(FlaskForm):
-    # Поля для выбора студента и курса будут заполняться динамически в маршруте
     student_id = SelectField('Student', coerce=int, validators=[DataRequired()])
     course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
-    status = SelectField('Status', choices=[
-        ('present', 'Present'), 
-        ('absent', 'Absent'), 
-        ('late', 'Late'), 
-        ('excused', 'Excused')
-    ], validators=[DataRequired()])
+    status = SelectField('Статус', choices=[('present', 'Присутствует'), ('absent', 'Отсутствует'), ('late', 'Опоздал')], validators=[DataRequired()])
     notes = TextAreaField('Notes', validators=[Length(min=0, max=256)], render_kw={"placeholder": "Optional notes"})
     submit = SubmitField('Mark Attendance')
 
-# Форма для назначения учителей/студентов на курсы
+    def __init__(self, *args, **kwargs):
+        super(MarkAttendanceForm, self).__init__(*args, **kwargs)
+        self.student_id.choices = []
+        self.course_id.choices = []
+
 class AssignCourseForm(FlaskForm):
     user_id = SelectField('User', coerce=int, validators=[DataRequired()])
     course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
     submit = SubmitField('Assign')
-
-# class PostForm(FlaskForm):
-#     post = TextAreaField('Say something', validators=[
-#         DataRequired(), Length(min=1, max=140)])
-#     submit = SubmitField('Submit')
 
 class MessageForm(FlaskForm):
     message = TextAreaField('Message', validators=[DataRequired(), Length(max=140)])
