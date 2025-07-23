@@ -7,6 +7,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from app import login
 from hashlib import md5
+from time import time
+import jwt
+from app import app
 
 class Message(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
@@ -47,8 +50,6 @@ class User(UserMixin, db.Model):
     last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
     
     # Связи
-    # posts: so.WriteOnlyMapped['Post'] = so.relationship(back_populates='author')
-
     sent_messages: so.Mapped[List['Message']] = so.relationship(
         'Message', 
         foreign_keys='Message.sender_id',
@@ -114,6 +115,20 @@ class User(UserMixin, db.Model):
         if course in self.enrolled_courses:
             self.enrolled_courses.remove(course)
             db.session.commit()
+
+    def get_reset_password_token(self, expires_in=600):
+        return jwt.encode(
+            {'reset_password': self.id, 'exp': time() + expires_in},
+            app.config['SECRET_KEY'], algorithm='HS256')
+
+    @staticmethod
+    def verify_reset_password_token(token):
+        try:
+            id = jwt.decode(token, app.config['SECRET_KEY'],
+                            algorithms=['HS256'])['reset_password']
+        except Exception:
+            return
+        return db.session.get(User, id)
 
 class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
