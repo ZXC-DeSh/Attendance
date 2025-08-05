@@ -105,9 +105,10 @@ def register():
 @app.route('/user/<username>')
 @login_required
 def user(username):
+    # Получаем пользователя или возвращаем 404, если не найден
     user = db.first_or_404(sa.select(User).where(User.username == username))
     page = request.args.get('page', 1, type=int)
-    
+
     enrolled_courses = []
     teaching_courses = []
     attendance_records = []
@@ -115,6 +116,7 @@ def user(username):
     prev_url = None
 
     if user.role == 'student':
+        # Запрос на получение курсов, в которые записан студент
         enrolled_courses_query = sa.select(Course).join(User.enrolled_courses).where(
             User.id == user.id
         ).order_by(Course.name)
@@ -125,7 +127,8 @@ def user(username):
             error_out=False
         )
         enrolled_courses = enrolled_courses_pagination.items
-        
+
+        # Запрос на получение записей посещаемости студента
         attendance_records_query = sa.select(AttendanceRecord).where(
             AttendanceRecord.student_id == user.id
         ).order_by(AttendanceRecord.date.desc())
@@ -137,10 +140,16 @@ def user(username):
         )
         attendance_records = attendance_records_pagination.items
 
-        next_url = url_for('user', username=user.username, page=max(enrolled_courses_pagination.next_num, attendance_records_pagination.next_num)) \
-            if enrolled_courses_pagination.has_next or attendance_records_pagination.has_next else None
-        prev_url = url_for('user', username=user.username, page=min(enrolled_courses_pagination.prev_num, attendance_records_pagination.prev_num)) \
-            if enrolled_courses_pagination.has_prev or attendance_records_pagination.has_prev else None
+        # Определяем URL для следующей и предыдущей страниц
+        next_url = url_for('user', username=user.username, page=max(
+            enrolled_courses_pagination.next_num if enrolled_courses_pagination.has_next else 0,
+            attendance_records_pagination.next_num if attendance_records_pagination.has_next else 0
+        )) if enrolled_courses_pagination.has_next or attendance_records_pagination.has_next else None
+
+        prev_url = url_for('user', username=user.username, page=min(
+            enrolled_courses_pagination.prev_num if enrolled_courses_pagination.has_prev else 0,
+            attendance_records_pagination.prev_num if attendance_records_pagination.has_prev else 0
+        )) if enrolled_courses_pagination.has_prev or attendance_records_pagination.has_prev else None
 
         return render_template(
             'user.html',
@@ -150,7 +159,9 @@ def user(username):
             next_url=next_url,
             prev_url=prev_url
         )
+
     elif user.role == 'teacher':
+        # Запрос на получение курсов, которые ведет учитель
         teaching_courses_query = sa.select(Course).join(User.teaching_courses).where(
             User.id == user.id
         ).order_by(Course.name)
@@ -161,10 +172,13 @@ def user(username):
             error_out=False
         )
         teaching_courses = teaching_courses_pagination.items
+
+        # Определяем URL для следующей и предыдущей страниц
         next_url = url_for('user', username=user.username, page=teaching_courses_pagination.next_num) \
             if teaching_courses_pagination.has_next else None
         prev_url = url_for('user', username=user.username, page=teaching_courses_pagination.prev_num) \
             if teaching_courses_pagination.has_prev else None
+
         return render_template(
             'user.html',
             user=user,
@@ -172,8 +186,11 @@ def user(username):
             next_url=next_url,
             prev_url=prev_url
         )
+
     else:
-        return render_template('user.html', user=user,) # Для других ролей
+        # Для других ролей, если они есть
+        return render_template('user.html', user=user)
+
 
 
 @app.before_request
