@@ -78,7 +78,7 @@ class User(UserMixin, db.Model):
     )
 
     def __repr__(self) -> str:
-        return f'<User  {self.username}>'
+        return f'<User {self.username}>'
     
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)

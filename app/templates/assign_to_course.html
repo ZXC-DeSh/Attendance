@@ -1,23 +1,40 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>{{ title }}</h1>
-    <form action="" method="post">
-        {{ form.hidden_tag() }}
-        <p>
-            {{ form.user_id.label }}<br>
-            {{ form.user_id() }}<br>
-            {% for error in form.user_id.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>
-            {{ form.course_id.label }}<br>
-            {{ form.course_id() }}<br>
-            {% for error in form.course_id.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>{{ form.submit() }}</p>
-    </form>
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h1 class="h3 mb-0">
+                        <i class="fas fa-user-plus me-2"></i>Назначить на курс
+                    </h1>
+                </div>
+                <div class="card-body p-4">
+                    <form action="" method="post">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.user_id.label(class="form-label") }}
+                            {{ form.user_id(class="form-select") }}
+                            {% for error in form.user_id.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.course_id.label(class="form-label") }}
+                            {{ form.course_id(class="form-select") }}
+                            {% for error in form.course_id.errors %}
+                                <div class="text-danger small mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="d-grid">
+                            {{ form.submit(class="btn btn-primary btn-lg") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

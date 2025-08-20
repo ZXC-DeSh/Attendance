@@ -7,7 +7,7 @@ import sqlalchemy.orm as so
 from app.models import User, Course, AttendanceRecord, Message
 from urllib.parse import urlsplit
 from datetime import datetime, timezone
-from app.models import teacher_course_association, student_course_association
+ 
 from app.email import send_password_reset_email
 from app.forms import ResetPasswordForm
 
@@ -74,14 +74,14 @@ def login():
         user = db.session.scalar(
             sa.select(User).where(User.username == form.username.data))
         if user is None or not user.check_password(form.password.data):
-            flash('Invalid username or password')
+            flash('Неверное имя пользователя или пароль', 'danger')
             return redirect(url_for('login'))
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get('next')
         if not next_page or urlsplit(next_page).netloc != '':
             next_page = url_for('index')
         return redirect(next_page)
-    return render_template('login.html', title='Sign In', form=form)
+    return render_template('login.html', title='Вход', form=form)
 
 @app.route('/logout')
 def logout():
@@ -98,9 +98,9 @@ def register():
         user.set_password(form.password.data)
         db.session.add(user)
         db.session.commit()
-        flash('Congratulations, you are now a registered user!')
+        flash('Congratulations, you are now a registered user!', 'success')
         return redirect(url_for('login'))
-    return render_template('register.html', title='Register', form=form)
+    return render_template('register.html', title='Регистрация', form=form)
 
 @app.route('/user/<username>')
 @login_required
@@ -140,16 +140,12 @@ def user(username):
         )
         attendance_records = attendance_records_pagination.items
 
-        # Определяем URL для следующей и предыдущей страниц
-        next_url = url_for('user', username=user.username, page=max(
-            enrolled_courses_pagination.next_num if enrolled_courses_pagination.has_next else 0,
-            attendance_records_pagination.next_num if attendance_records_pagination.has_next else 0
-        )) if enrolled_courses_pagination.has_next or attendance_records_pagination.has_next else None
+        # Определяем URL для следующей и предыдущей страниц безопасно
+        next_url = url_for('user', username=user.username, page=page + 1) \
+            if (enrolled_courses_pagination.has_next or attendance_records_pagination.has_next) else None
 
-        prev_url = url_for('user', username=user.username, page=min(
-            enrolled_courses_pagination.prev_num if enrolled_courses_pagination.has_prev else 0,
-            attendance_records_pagination.prev_num if attendance_records_pagination.has_prev else 0
-        )) if enrolled_courses_pagination.has_prev or attendance_records_pagination.has_prev else None
+        prev_url = url_for('user', username=user.username, page=page - 1) \
+            if (page > 1 and (enrolled_courses_pagination.has_prev or attendance_records_pagination.has_prev)) else None
 
         return render_template(
             'user.html',
@@ -207,12 +203,12 @@ def edit_profile():
         current_user.username = form.username.data
         current_user.about_me = form.about_me.data
         db.session.commit()
-        flash('Your changes have been saved.')
+        flash('Изменения сохранены.', 'success')
         return redirect(url_for('edit_profile'))
     elif request.method == 'GET':
         form.username.data = current_user.username
         form.about_me.data = current_user.about_me
-    return render_template('edit_profile.html', title='Edit Profile', form=form)
+    return render_template('edit_profile.html', title='Редактировать профиль', form=form)
 
 # маршруты для управления курсами и посещаемостью
 
@@ -234,7 +230,7 @@ def courses():
         if all_courses_pagination.has_prev else None
     return render_template(
         'courses.html',
-        title='Courses',
+        title='Курсы',
         courses=all_courses,
         next_url=next_url,
         prev_url=prev_url
@@ -244,7 +240,7 @@ def courses():
 @login_required
 def create_course():
     if current_user.role != 'teacher':
-        flash('You are not authorized to create courses.')
+        flash('You are not authorized to create courses.', 'danger')
         return redirect(url_for('index'))
 
     form = CourseForm()
@@ -252,20 +248,20 @@ def create_course():
         course = Course(name=form.name.data, description=form.description.data)
         db.session.add(course)
         db.session.commit()
-        flash(f'Course "{course.name}" created successfully!')
+        flash(f'Курс "{course.name}" успешно создан!', 'success')
         return redirect(url_for('courses'))
-    return render_template('create_edit_course.html', title='Create Course', form=form)
+    return render_template('create_edit_course.html', title='Создать курс', form=form)
 
 @app.route('/edit_course/<int:course_id>', methods=['GET', 'POST'])
 @login_required
 def edit_course(course_id):
     if current_user.role != 'teacher':
-        flash('You are not authorized to edit courses.')
+        flash('У вас нет прав на редактирование курсов.', 'danger')
         return redirect(url_for('index'))
 
     course = db.session.get(Course, course_id)
     if course is None:
-        flash('Course not found.')
+        flash('Курс не найден.', 'warning')
         return redirect(url_for('courses'))
 
     form = CourseForm(original_name=course.name)
@@ -273,73 +269,75 @@ def edit_course(course_id):
         course.name = form.name.data
         course.description = form.description.data
         db.session.commit()
-        flash(f'Course "{course.name}" updated successfully!')
+        flash(f'Курс "{course.name}" успешно обновлён!', 'success')
         return redirect(url_for('courses'))
     elif request.method == 'GET':
         form.name.data = course.name
         form.description.data = course.description
-    return render_template('create_edit_course.html', title='Edit Course', form=form)
+    return render_template('create_edit_course.html', title='Редактировать курс', form=form)
 
 @app.route('/delete_course/<int:course_id>', methods=['POST'])
 @login_required
 def delete_course(course_id):
     if current_user.role != 'teacher':
-        flash('You are not authorized to delete courses.')
+        flash('У вас нет прав на удаление курсов.', 'danger')
         return redirect(url_for('index'))
 
     course = db.session.get(Course, course_id)
     if course is None:
-        flash('Course not found.')
+        flash('Курс не найден.', 'warning')
         return redirect(url_for('courses'))
     try:
         db.session.delete(course)
         db.session.commit()
-        flash(f'Course "{course.name}" deleted successfully!')
+        flash(f'Курс "{course.name}" успешно удалён!', 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting course: {str(e)}')
+        flash(f'Ошибка удаления курса: {str(e)}', 'danger')
     return redirect(url_for('courses'))
 
 @app.route('/assign_to_course', methods=['GET', 'POST'])
 @login_required
 def assign_to_course():
     if current_user.role != 'teacher':
-        flash('You are not authorized to assign users to courses.')
+        flash('У вас нет прав назначать пользователей на курсы.', 'danger')
         return redirect(url_for('index'))
 
     form = AssignCourseForm()
-    form.user_id.choices = [(u.id, u.username) for u in User.query.order_by(User.username).all()]
-    form.course_id.choices = [(c.id, c.name) for c in Course.query.order_by(Course.name).all()]
+    users = db.session.scalars(sa.select(User).order_by(User.username)).all()
+    courses = db.session.scalars(sa.select(Course).order_by(Course.name)).all()
+    form.user_id.choices = [(u.id, u.username) for u in users]
+    form.course_id.choices = [(c.id, c.name) for c in courses]
 
     if form.validate_on_submit():
-        user = User.query.get(form.user_id.data)
-        course = Course.query.get(form.course_id.data)
+        user = db.session.get(User, form.user_id.data)
+        course = db.session.get(Course, form.course_id.data)
 
         if not user or not course:
-            flash('User or course not found.')
+            flash('Пользователь или курс не найден.', 'warning')
             return redirect(url_for('assign_to_course'))
 
         try:
             if user.role == 'teacher':
                 user.add_teaching_course(course)
-                flash(f'Teacher {user.username} assigned to course {course.name}.')
+                flash(f'Преподаватель {user.username} назначен на курс {course.name}.', 'success')
             elif user.role == 'student':
                 user.enroll_in_course(course)
-                flash(f'Student {user.username} enrolled in course {course.name}.')
+                flash(f'Студент {user.username} записан на курс {course.name}.', 'success')
             else:
-                flash('Invalid user role for course assignment.')
+                flash('Некорректная роль пользователя для назначения.', 'warning')
         except ValueError as e:
-            flash(str(e))
+            flash(str(e), 'danger')
         
         return redirect(url_for('assign_to_course'))
     
-    return render_template('assign_to_course.html', form=form)
+    return render_template('assign_to_course.html', title='Назначить на курс', form=form)
 
 @app.route('/mark_attendance', methods=['GET', 'POST'])
 @login_required
 def mark_attendance():
     if current_user.role != 'teacher':
-        flash('You are not authorized to mark attendance.', 'error')
+        flash('У вас нет прав отмечать посещаемость.', 'danger')
         return redirect(url_for('index'))
 
     form = MarkAttendanceForm()
@@ -349,7 +347,7 @@ def mark_attendance():
     
     # Если у преподавателя нет курсов, показываем сообщение
     if not teacher_courses:
-        flash('You are not assigned to any courses.', 'warning')
+        flash('Вы не назначены ни на один курс.', 'warning')
     
     form.course_id.choices = [(c.id, c.name) for c in teacher_courses]
 
@@ -369,10 +367,10 @@ def mark_attendance():
             
             # Если на курсе нет студентов
             if not form.student_id.choices:
-                flash(f'No students enrolled in {selected_course.name}', 'info')
+                flash(f'На курс {selected_course.name} не записаны студенты', 'info')
         else:
             form.student_id.choices = []
-            flash('Course not found or access denied', 'error')
+            flash('Курс не найден или доступ запрещён', 'danger')
     else:
         form.student_id.choices = []
 
@@ -381,21 +379,21 @@ def mark_attendance():
         course = db.session.get(Course, form.course_id.data)
 
         if not student or not course:
-            flash('Invalid student or course selected.', 'error')
+            flash('Выбран некорректный студент или курс.', 'danger')
             return redirect(url_for('mark_attendance'))
         
         if student.role != 'student':
-            flash('Only students can have attendance records.', 'error')
+            flash('Только для студентов возможны записи посещаемости.', 'danger')
             return redirect(url_for('mark_attendance'))
 
         # Проверяем, что студент записан на курс
         if not any(s.id == student.id for s in course.students):
-            flash(f'Student {student.username} is not enrolled in course {course.name}.', 'error')
+            flash(f'Студент {student.username} не записан на курс {course.name}.', 'danger')
             return redirect(url_for('mark_attendance'))
 
         # Проверяем, что учитель преподает этот курс
         if course not in current_user.teaching_courses:
-            flash(f'You are not authorized to mark attendance for course {course.name}.', 'error')
+            flash(f'У вас нет прав отмечать посещаемость по курсу {course.name}.', 'danger')
             return redirect(url_for('mark_attendance'))
 
         # Создаем запись о посещаемости
@@ -407,10 +405,10 @@ def mark_attendance():
         )
         db.session.add(attendance)
         db.session.commit()
-        flash(f'Attendance marked for {student.username} in {course.name} as {form.status.data}.', 'success')
+        flash(f'Посещаемость отмечена: {student.username} — {course.name} — {form.status.data}.', 'success')
         return redirect(url_for('mark_attendance', course_id=course.id))
 
-    return render_template('mark_attendance.html', title='Mark Attendance', form=form)
+    return render_template('mark_attendance.html', title='Отметить посещаемость', form=form)
 
 @app.route('/_get_students_for_course')
 def get_students_for_course():
@@ -430,21 +428,32 @@ def get_students_for_course():
 def chat(recipient_id):
     recipient = db.session.get(User, recipient_id)
     if not recipient:
-        flash('User not found.')
+        flash('Пользователь не найден.', 'warning')
         return redirect(url_for('index'))
     form = MessageForm()
     if form.validate_on_submit():
         message = Message(sender_id=current_user.id, recipient_id=recipient_id, body=form.message.data)
         db.session.add(message)
         db.session.commit()
-        flash('Your message has been sent!')
+        flash('Сообщение отправлено!', 'success')
         return redirect(url_for('chat', recipient_id=recipient_id))
-    messages = Message.query.filter(
-        ((Message.sender_id == current_user.id) & (Message.recipient_id == recipient_id)) |
-        ((Message.sender_id == recipient_id) & (Message.recipient_id == current_user.id))
-    ).order_by(Message.timestamp.asc()).all()
-    recipient = User.query.get(recipient_id)
+    messages = db.session.execute(
+        sa.select(Message)
+        .where(
+            ((Message.sender_id == current_user.id) & (Message.recipient_id == recipient_id)) |
+            ((Message.sender_id == recipient_id) & (Message.recipient_id == current_user.id))
+        )
+        .order_by(Message.timestamp.asc())
+    ).scalars().all()
     return render_template('chat.html', form=form, messages=messages, recipient=recipient)
+
+@app.route('/chat', methods=['GET'])
+@login_required
+def chat_list():
+    users = db.session.execute(
+        sa.select(User).where(User.id != current_user.id).order_by(User.username)
+    ).scalars().all()
+    return render_template('chat_list.html', users=users)
 
 @app.route('/reset_password_request', methods=['GET', 'POST'])
 def reset_password_request():
@@ -456,9 +465,9 @@ def reset_password_request():
             sa.select(User).where(User.email == form.email.data))
         if user:
             send_password_reset_email(user)
-        flash('Check your email for the instructions to reset your password')
+        flash('Проверьте почту: мы отправили инструкции по сбросу пароля', 'info')
         return redirect(url_for('login'))
-    return render_template('reset_password_request.html', title='Reset Password', form=form)
+    return render_template('reset_password_request.html', title='Сброс пароля', form=form)
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -471,6 +480,6 @@ def reset_password(token):
     if form.validate_on_submit():
         user.set_password(form.password.data)
         db.session.commit()
-        flash('Your password has been reset.')
+        flash('Пароль был сброшен.')
         return redirect(url_for('login'))
     return render_template('reset_password.html', form=form)

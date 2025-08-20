@@ -1,25 +1,89 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h1>Chat with {{ recipient.username }}</h1>
-    <form action="" method="post">
-        {{ form.hidden_tag() }}
-        <p>
-            {{ form.message.label }}<br>
-            {{ form.message(cols=50, rows=4) }}<br>
-            {% for error in form.message.errors %}
-            <span style="color: red;">[{{ error }}]</span>
-            {% endfor %}
-        </p>
-        <p>{{ form.submit() }}</p>
-    </form>
+    <div class="d-flex align-items-center mb-4">
+        <div class="me-3">
+            <img src="{{ recipient.avatar(48) }}" alt="Аватар" class="rounded-circle border border-2 border-primary">
+        </div>
+        <div>
+            <h1 class="h3 text-primary mb-1">Чат с {{ recipient.username }}</h1>
+            <span class="badge bg-primary">
+                {% if recipient.role == 'student' %}
+                    <i class="fas fa-user-graduate me-1"></i>Студент
+                {% else %}
+                    <i class="fas fa-chalkboard-teacher me-1"></i>Преподаватель
+                {% endif %}
+            </span>
+        </div>
+    </div>
 
-    <h2>Messages:</h2>
-    <ul>
-        {% for message in messages %}
-            <li>
-                <strong>{{ message.sender.username }}:</strong> {{ message.body }} <em>{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</em>
-            </li>
-        {% endfor %}
-    </ul>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">
+                        <i class="fas fa-comments me-2"></i>Сообщения
+                    </h2>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="d-flex mb-3 {% if message.sender_id == current_user.id %}justify-content-end{% endif %}">
+                                <div class="{% if message.sender_id == current_user.id %}text-end{% endif %}">
+                                    <div class="d-flex align-items-center mb-1 {% if message.sender_id == current_user.id %}justify-content-end{% endif %}">
+                                        <small class="text-muted me-2">
+                                            {% if message.sender_id == current_user.id %}
+                                                {{ message.timestamp.strftime('%d.%m.%Y %H:%M') }}
+                                            {% else %}
+                                                {{ message.timestamp.strftime('%d.%m.%Y %H:%M') }}
+                                            {% endif %}
+                                        </small>
+                                        <span class="badge bg-secondary">
+                                            {% if message.sender_id == current_user.id %}
+                                                <i class="fas fa-user me-1"></i>Вы
+                                            {% else %}
+                                                <i class="fas fa-user me-1"></i>{{ message.sender.username }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="{% if message.sender_id == current_user.id %}bg-primary text-white{% else %}bg-light{% endif %} rounded p-3" 
+                                         style="max-width: 70%; {% if message.sender_id == current_user.id %}margin-left: auto;{% endif %}">
+                                        {{ message.body }}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-comment-slash fa-2x text-muted mb-2"></i>
+                            <p class="text-muted">Пока нет сообщений. Начните общение!</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="h6 mb-0">
+                        <i class="fas fa-paper-plane me-2"></i>Отправить сообщение
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form action="" method="post">
+                        {{ form.hidden_tag() }}
+                        <div class="mb-3">
+                            {{ form.message.label(class="form-label") }}
+                            {{ form.message(class="form-control", rows=4, placeholder="Введите ваше сообщение...") }}
+                            {% for error in form.message.errors %}
+                                <div class="text-danger small">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {{ form.submit(class="btn btn-primary w-100") }}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

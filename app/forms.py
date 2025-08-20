@@ -7,35 +7,35 @@ from app.models import User, Course
 
 
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    remember_me = BooleanField('Remember Me')
-    submit = SubmitField('Sign In')
+    username = StringField('Имя пользователя', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[DataRequired()])
+    remember_me = BooleanField('Запомнить меня')
+    submit = SubmitField('Войти')
 
 class RegistrationForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    username = StringField('Имя пользователя', validators=[DataRequired()])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    role = SelectField('Role', choices=[('student', 'Student'), ('teacher', 'Teacher')], validators=[DataRequired()])
-    submit = SubmitField('Register')
+    password = PasswordField('Пароль', validators=[DataRequired()])
+    password2 = PasswordField('Повторите пароль', validators=[DataRequired(), EqualTo('password')])
+    role = SelectField('Роль', choices=[('student', 'Студент'), ('teacher', 'Преподаватель')], validators=[DataRequired()])
+    submit = SubmitField('Зарегистрироваться')
 
     def validate_username(self, username):
         user = db.session.scalar(sa.select(User).where(
             User.username == username.data))
         if user is not None:
-            raise ValidationError('Please use a different username.')
+            raise ValidationError('Пожалуйста, используйте другое имя пользователя.')
 
     def validate_email(self, email):
         user = db.session.scalar(sa.select(User).where(
             User.email == email.data))
         if user is not None:
-            raise ValidationError('Please use a different email address.')
+            raise ValidationError('Пожалуйста, используйте другой адрес электронной почты.')
 
 class EditProfileForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
-    about_me = TextAreaField('About me', validators=[Length(min=0, max=140)])
-    submit = SubmitField('Submit')
+    username = StringField('Имя пользователя', validators=[DataRequired()])
+    about_me = TextAreaField('О себе', validators=[Length(min=0, max=140)])
+    submit = SubmitField('Сохранить')
 
     def __init__(self, original_username, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,12 +46,12 @@ class EditProfileForm(FlaskForm):
             user = db.session.scalar(sa.select(User).where(
                 User.username == username.data))
             if user is not None:
-                raise ValidationError('Please use a different username.')
+                raise ValidationError('Пожалуйста, используйте другое имя пользователя.')
 
 class CourseForm(FlaskForm):
-    name = StringField('Course Name', validators=[DataRequired()])
-    description = TextAreaField('Description', validators=[Length(min=0, max=256)])
-    submit = SubmitField('Save Course')
+    name = StringField('Название курса', validators=[DataRequired()])
+    description = TextAreaField('Описание', validators=[Length(min=0, max=256)])
+    submit = SubmitField('Сохранить курс')
 
     def __init__(self, original_name=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -62,14 +62,14 @@ class CourseForm(FlaskForm):
             course = db.session.scalar(sa.select(Course).where(
                 Course.name == name.data))
             if course is not None:
-                raise ValidationError('Course with this name already exists.')
+                raise ValidationError('Курс с таким названием уже существует.')
 
 class MarkAttendanceForm(FlaskForm):
-    student_id = SelectField('Student', coerce=int, validators=[DataRequired()])
-    course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
+    student_id = SelectField('Студент', coerce=int, validators=[DataRequired()])
+    course_id = SelectField('Курс', coerce=int, validators=[DataRequired()])
     status = SelectField('Статус', choices=[('present', 'Присутствует'), ('absent', 'Отсутствует'), ('late', 'Опоздал')], validators=[DataRequired()])
-    notes = TextAreaField('Notes', validators=[Length(min=0, max=256)], render_kw={"placeholder": "Optional notes"})
-    submit = SubmitField('Mark Attendance')
+    notes = TextAreaField('Заметки', validators=[Length(min=0, max=256)], render_kw={"placeholder": "Дополнительные заметки"})
+    submit = SubmitField('Отметить посещаемость')
 
     def __init__(self, *args, **kwargs):
         super(MarkAttendanceForm, self).__init__(*args, **kwargs)
@@ -77,19 +77,19 @@ class MarkAttendanceForm(FlaskForm):
         self.course_id.choices = []
 
 class AssignCourseForm(FlaskForm):
-    user_id = SelectField('User', coerce=int, validators=[DataRequired()])
-    course_id = SelectField('Course', coerce=int, validators=[DataRequired()])
-    submit = SubmitField('Assign')
+    user_id = SelectField('Пользователь', coerce=int, validators=[DataRequired()])
+    course_id = SelectField('Курс', coerce=int, validators=[DataRequired()])
+    submit = SubmitField('Назначить')
 
 class MessageForm(FlaskForm):
-    message = TextAreaField('Message', validators=[DataRequired(), Length(max=140)])
-    submit = SubmitField('Send')
+    message = TextAreaField('Сообщение', validators=[DataRequired(), Length(max=140)])
+    submit = SubmitField('Отправить')
 
 class ResetPasswordRequestForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
-    submit = SubmitField('Request Password Reset')
+    submit = SubmitField('Отправить письмо для сброса пароля')
 
 class ResetPasswordForm(FlaskForm):
-    password = PasswordField('Password', validators=[DataRequired()])
-    password2 = PasswordField('Repeat Password', validators=[DataRequired(), EqualTo('password')])
-    submit = SubmitField('Request Password Reset')
+    password = PasswordField('Новый пароль', validators=[DataRequired()])
+    password2 = PasswordField('Повторите пароль', validators=[DataRequired(), EqualTo('password')])
+    submit = SubmitField('Сбросить пароль')
