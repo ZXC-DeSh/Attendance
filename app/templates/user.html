@@ -1,77 +1,191 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <table>
-        <tr valign="top">
-            <td><img src="{{ user.avatar(128) }}"></td>
-            <td>
-                <h1>User: {{ user.username }} ({{ user.role.capitalize() }})</h1>
-                {% if user.about_me %}<p>{{ user.about_me }}</p>{% endif %}
-                {% if user.last_seen %}<p>Last seen on: {{ user.last_seen }}</p>{% endif %}
-                {% if user == current_user %}
-                <p><a href="{{ url_for('edit_profile') }}">Edit your profile</a></p>
-                {% endif %}
-            </td>
-        </tr>
-    </table>
-    <hr>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm text-center">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <img src="{{ user.avatar(128) }}" alt="Аватар" class="rounded-circle border border-3 border-primary">
+                    </div>
+                    <h2 class="h4 text-primary">{{ user.username }}</h2>
+                    <span class="badge bg-primary fs-6 mb-2">
+                        {% if user.role == 'student' %}
+                            <i class="fas fa-user-graduate me-1"></i>Студент
+                        {% else %}
+                            <i class="fas fa-chalkboard-teacher me-1"></i>Преподаватель
+                        {% endif %}
+                    </span>
+                    {% if user.about_me %}
+                        <p class="text-muted mt-2">{{ user.about_me }}</p>
+                    {% endif %}
+                    {% if user.last_seen %}
+                        <p class="text-muted small">
+                            <i class="fas fa-clock me-1"></i>Был(а) в сети: {{ user.last_seen.strftime('%d.%m.%Y в %H:%M') }}
+                        </p>
+                    {% endif %}
+                    {% if user == current_user %}
+                        <a href="{{ url_for('edit_profile') }}" class="btn btn-primary">
+                            <i class="fas fa-edit me-1"></i>Редактировать профиль
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-8">
+            {% if user.role == 'student' %}
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="h5 mb-0">
+                            <i class="fas fa-book me-2"></i>Записан на курсы
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        {% if enrolled_courses %}
+                            <div class="row">
+                                {% for course in enrolled_courses %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card border-0 shadow-sm h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-graduation-cap fa-2x text-primary mb-2"></i>
+                                                <h5 class="card-title text-primary">{{ course.name }}</h5>
+                                                {% if course.description %}
+                                                    <p class="card-text text-muted small">{{ course.description }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-3">
+                                <i class="fas fa-book-open fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">Не записан ни на какие курсы.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
 
-    {% if user.role == 'student' %}
-        <h2>Записан на курсы:</h2>
-        {% if enrolled_courses %}
-            <ul>
-                {% for course in enrolled_courses %}
-                    <li>{{ course.name }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>Не записан ни на какие курсы.</p>
-        {% endif %}
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="h5 mb-0">
+                            <i class="fas fa-calendar-check me-2"></i>Записи о посещаемости
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        {% if attendance_records %}
+                            <div class="row">
+                                {% for record in attendance_records %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card border-0 shadow-sm h-100">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title text-primary">{{ record.course.name }}</h6>
+                                                <p class="card-text text-muted small">
+                                                    <i class="fas fa-clock me-1"></i>{{ record.date.strftime('%d.%m.%Y в %H:%M') }}
+                                                </p>
+                                                <div class="mb-2">
+                                                    {% if record.status == 'present' %}
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check me-1"></i>Присутствует
+                                                        </span>
+                                                    {% elif record.status == 'absent' %}
+                                                        <span class="badge bg-danger">
+                                                            <i class="fas fa-times me-1"></i>Отсутствует
+                                                        </span>
+                                                    {% elif record.status == 'late' %}
+                                                        <span class="badge bg-warning">
+                                                            <i class="fas fa-clock me-1"></i>Опоздал
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">{{ record.status }}</span>
+                                                    {% endif %}
+                                                </div>
+                                                {% if record.notes %}
+                                                    <p class="card-text small text-muted">
+                                                        <i class="fas fa-sticky-note me-1"></i>{{ record.notes }}
+                                                    </p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-3">
+                                <i class="fas fa-calendar-times fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">Нет записей о посещаемости.</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if prev_url or next_url %}
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                {% if prev_url %}
+                                    <a href="{{ prev_url }}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-chevron-left me-1"></i>Предыдущие
+                                    </a>
+                                {% endif %}
+                                {% if next_url %}
+                                    <a href="{{ next_url }}" class="btn btn-outline-primary btn-sm">
+                                        Следующие<i class="fas fa-chevron-right ms-1"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
 
-        <h2>Записи о посещаемости:</h2>
-        {% if attendance_records %}
-            <ul>
-                {% for record in attendance_records %}
-                    <li>
-                        <b>{{ record.course.name }}</b> on {{ record.date.strftime('%Y-%m-%d %H:%M') }}: 
-                        <span style="color: 
-                            {% if record.status == 'present' %}green
-                            {% elif record.status == 'absent' %}red
-                            {% elif record.status == 'late' %}orange
-                            {% else %}blue
-                            {% endif %};">
-                            {{ record.status.capitalize() }}
-                        </span>
-                        {% if record.notes %}(Notes: {{ record.notes }}){% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>Нет записей о посещаемости.</p>
-        {% endif %}
-        {% if prev_url %}
-        <a href="{{ prev_url }}">Предыдущие записи/курсы</a>
-        {% endif %}
-        {% if next_url %}
-        <a href="{{ next_url }}">Следующие записи/курсы</a>
-        {% endif %}
-
-    {% elif user.role == 'teacher' %}
-        <h2>Преподает курсы:</h2>
-        {% if teaching_courses %}
-            <ul>
-                {% for course in teaching_courses %}
-                    <li>{{ course.name }}</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>Не преподает никаких курсов.</p>
-        {% endif %}
-        {% if prev_url %}
-        <a href="{{ prev_url }}">Предыдущие курсы</a>
-        {% endif %}
-        {% if next_url %}
-        <a href="{{ next_url }}">Следующие курсы</a>
-        {% endif %}
-    {% endif %}
+            {% elif user.role == 'teacher' %}
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h3 class="h5 mb-0">
+                            <i class="fas fa-chalkboard-teacher me-2"></i>Преподаёт курсы
+                        </h3>
+                    </div>
+                    <div class="card-body">
+                        {% if teaching_courses %}
+                            <div class="row">
+                                {% for course in teaching_courses %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card border-0 shadow-sm h-100">
+                                            <div class="card-body text-center">
+                                                <i class="fas fa-book fa-2x text-primary mb-2"></i>
+                                                <h5 class="card-title text-primary">{{ course.name }}</h5>
+                                                {% if course.description %}
+                                                    <p class="card-text text-muted small">{{ course.description }}</p>
+                                                {% endif %}
+                                                <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-edit me-1"></i>Редактировать
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-3">
+                                <i class="fas fa-chalkboard fa-2x text-muted mb-2"></i>
+                                <p class="text-muted mb-0">Не преподаёт никаких курсов.</p>
+                            </div>
+                        {% endif %}
+                        
+                        {% if prev_url or next_url %}
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                {% if prev_url %}
+                                    <a href="{{ prev_url }}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-chevron-left me-1"></i>Предыдущие
+                                    </a>
+                                {% endif %}
+                                {% if next_url %}
+                                    <a href="{{ next_url }}" class="btn btn-outline-primary btn-sm">
+                                        Следующие<i class="fas fa-chevron-right ms-1"></i>
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
 {% endblock %}
