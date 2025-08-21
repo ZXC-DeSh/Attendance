@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
         <h1 class="h2 mb-0">
             <i class="fas fa-book me-2"></i>Курсы
         </h1>
@@ -15,24 +15,23 @@
     {% if courses %}
         <div class="row">
             {% for course in courses %}
-                <div class="col-md-6 col-lg-4 mb-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <div class="text-center mb-3">
-                                <i class="fas fa-graduation-cap fa-3x text-primary"></i>
+                <div class="col-6 col-lg-3 mb-3">
+                    <div class="card border-0 shadow-sm h-100" style="min-height: 160px;">
+                        <div class="card-body py-3">
+                            <div class="text-center mb-2">
+                                <i class="fas fa-graduation-cap fa-2x text-primary"></i>
                             </div>
-                            <h5 class="card-title text-primary text-center">{{ course.name }}</h5>
+                            <h6 class="card-title text-primary text-center mb-2" style="font-size: 1rem;">{{ course.name }}</h6>
                             {% if course.description %}
-                                <p class="card-text text-muted text-center">{{ course.description }}</p>
+                                <p class="card-text text-muted text-center small">{{ course.description }}</p>
                             {% endif %}
                             
                             {% if current_user.role == 'teacher' %}
-                                <div class="d-flex justify-content-center gap-2 mt-3">
+                                <div class="d-flex justify-content-center gap-2 mt-2">
                                     <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-edit me-1"></i>Редактировать
                                     </a>
                                     <form action="{{ url_for('delete_course', course_id=course.id) }}" method="post" style="display:inline;">
-                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-outline-danger btn-sm" 
                                                 onclick="return confirm('Вы уверены, что хотите удалить этот курс?');">
                                             <i class="fas fa-trash me-1"></i>Удалить
@@ -47,17 +46,21 @@
         </div>
         
         {% if prev_url or next_url %}
-            <div class="d-flex justify-content-between align-items-center mt-4">
-                {% if prev_url %}
-                    <a href="{{ prev_url }}" class="btn btn-outline-primary">
-                        <i class="fas fa-chevron-left me-1"></i>Предыдущие курсы
-                    </a>
-                {% endif %}
-                {% if next_url %}
-                    <a href="{{ next_url }}" class="btn btn-outline-primary">
-                        Следующие курсы<i class="fas fa-chevron-right ms-1"></i>
-                    </a>
-                {% endif %}
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div>
+                    {% if prev_url %}
+                        <a href="{{ prev_url }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-chevron-left me-1"></i>Предыдущие
+                        </a>
+                    {% endif %}
+                </div>
+                <div>
+                    {% if next_url %}
+                        <a href="{{ next_url }}" class="btn btn-outline-primary btn-sm">
+                            Следующие<i class="fas fa-chevron-right ms-1"></i>
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         {% endif %}
     {% else %}
