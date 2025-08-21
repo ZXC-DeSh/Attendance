@@ -1,6 +1,29 @@
 {% extends "base.html" %}
 
 {% block content %}
+    <style>
+        /* Отключаем прыгающую анимацию у карточек на странице профиля */
+        .profile-page .card:hover {
+            transform: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .profile-page .card:hover .fas,
+        .profile-page .card:hover .far,
+        .profile-page .card:hover .fab {
+            transform: none;
+        }
+        /* Сохраняем анимацию только у карточек курсов */
+        .profile-page .course-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+        }
+        .profile-page .course-card:hover .fas,
+        .profile-page .course-card:hover .far,
+        .profile-page .course-card:hover .fab {
+            transform: scale(1.1);
+        }
+    </style>
+    <div class="profile-page">
     <div class="row">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm text-center">
@@ -25,9 +48,14 @@
                         </p>
                     {% endif %}
                     {% if user == current_user %}
-                        <a href="{{ url_for('edit_profile') }}" class="btn btn-primary">
+                        <a href="{{ url_for('edit_profile') }}" class="btn btn-primary mb-2">
                             <i class="fas fa-edit me-1"></i>Редактировать профиль
                         </a>
+                        <div>
+                            <a class="btn btn-outline-danger" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt me-1"></i>Выйти
+                            </a>
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -46,7 +74,7 @@
                             <div class="row">
                                 {% for course in enrolled_courses %}
                                     <div class="col-md-6 mb-3">
-                                        <div class="card border-0 shadow-sm h-100">
+                                        <div class="card course-card border-0 shadow-sm h-100">
                                             <div class="card-body text-center">
                                                 <i class="fas fa-graduation-cap fa-2x text-primary mb-2"></i>
                                                 <h5 class="card-title text-primary">{{ course.name }}</h5>
@@ -147,16 +175,14 @@
                             <div class="row">
                                 {% for course in teaching_courses %}
                                     <div class="col-md-6 mb-3">
-                                        <div class="card border-0 shadow-sm h-100">
+                                        <div class="card course-card border-0 shadow-sm h-100">
                                             <div class="card-body text-center">
                                                 <i class="fas fa-book fa-2x text-primary mb-2"></i>
                                                 <h5 class="card-title text-primary">{{ course.name }}</h5>
                                                 {% if course.description %}
                                                     <p class="card-text text-muted small">{{ course.description }}</p>
                                                 {% endif %}
-                                                <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-primary btn-sm">
-                                                    <i class="fas fa-edit me-1"></i>Редактировать
-                                                </a>
+
                                             </div>
                                         </div>
                                     </div>
@@ -187,5 +213,6 @@
                 </div>
             {% endif %}
         </div>
+    </div>
     </div>
 {% endblock %}

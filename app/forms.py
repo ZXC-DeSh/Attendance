@@ -82,7 +82,7 @@ class AssignCourseForm(FlaskForm):
     submit = SubmitField('Назначить')
 
 class MessageForm(FlaskForm):
-    message = TextAreaField('Сообщение', validators=[DataRequired(), Length(max=140)])
+    message = TextAreaField('Сообщение', validators=[DataRequired(), Length(max=1000)])
     submit = SubmitField('Отправить')
 
 class ResetPasswordRequestForm(FlaskForm):

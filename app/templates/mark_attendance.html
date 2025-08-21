@@ -1,6 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
+    <style>
+        /* Убираем прыгающую анимацию карточек на странице отметки посещаемости */
+        .attendance-page .card:hover {
+            transform: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .attendance-page .card:hover .fas,
+        .attendance-page .card:hover .far,
+        .attendance-page .card:hover .fab {
+            transform: none;
+        }
+        /* Кнопки сохраняют свою анимацию из base.css */
+    </style>
+    <div class="attendance-page">
     <div class="row justify-content-center">
         <div class="col-md-8 col-lg-6">
             <div class="card border-0 shadow-sm">
@@ -90,4 +104,5 @@
             }
         });
     </script>
+    </div>
 {% endblock %}

@@ -15,7 +15,7 @@ class Message(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     sender_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), nullable=False)
     recipient_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), nullable=False)
-    body: so.Mapped[str] = so.mapped_column(sa.String(140), nullable=False)
+    body: so.Mapped[str] = so.mapped_column(sa.String(1000), nullable=False)
     timestamp: so.Mapped[datetime] = so.mapped_column(sa.DateTime, index=True, default=lambda: datetime.now(timezone.utc))
     
     sender: so.Mapped['User'] = so.relationship('User', foreign_keys=[sender_id], back_populates='sent_messages')
@@ -96,12 +96,10 @@ class User(UserMixin, db.Model):
             raise ValueError("Only teachers can be assigned to teaching courses")
         if course not in self.teaching_courses:
             self.teaching_courses.append(course)
-            db.session.commit()
 
     def remove_teaching_course(self, course: 'Course') -> None:
         if course in self.teaching_courses:
             self.teaching_courses.remove(course)
-            db.session.commit()
 
     # Методы для управления курсами (для студентов)
     def enroll_in_course(self, course: 'Course') -> None:
@@ -109,12 +107,10 @@ class User(UserMixin, db.Model):
             raise ValueError("Only students can enroll in courses")
         if course not in self.enrolled_courses:
             self.enrolled_courses.append(course)
-            db.session.commit()
 
     def unenroll_from_course(self, course: 'Course') -> None:
         if course in self.enrolled_courses:
             self.enrolled_courses.remove(course)
-            db.session.commit()
 
     def get_reset_password_token(self, expires_in=600):
         return jwt.encode(

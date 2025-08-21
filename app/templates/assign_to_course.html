@@ -1,40 +1,163 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="row justify-content-center">
-        <div class="col-md-8 col-lg-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-primary text-white text-center">
-                    <h1 class="h3 mb-0">
-                        <i class="fas fa-user-plus me-2"></i>Назначить на курс
-                    </h1>
+    <style>
+        /* Убираем прыгающую анимацию карточек на странице назначения на курс */
+        .assign-page .card:hover {
+            transform: none;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+        .assign-page .card:hover .fas,
+        .assign-page .card:hover .far,
+        .assign-page .card:hover .fab {
+            transform: none;
+        }
+        /* Центрирование и сужение формы выбора */
+        .assign-form {
+            max-width: 420px;
+            margin: 0 auto;
+        }
+        .status-toggle .btn {
+            border: none;
+            background: transparent;
+            padding: 0.25rem 0.5rem;
+        }
+        .status-toggle .active-yes {
+            color: #16a34a; /* green-600 */
+            filter: drop-shadow(0 1px 2px rgba(22,163,74,.35));
+        }
+        .status-toggle .active-no {
+            color: #dc2626; /* red-600 */
+            filter: drop-shadow(0 1px 2px rgba(220,38,38,.35));
+        }
+        .status-toggle .inactive { opacity: .35; }
+
+        /* Единый прямоугольник: убираем "второй" белый фон контейнера */
+        .container {
+            background: transparent;
+            box-shadow: none;
+            padding: 0;
+            border-radius: 0;
+        }
+
+        /* Убираем вторую синюю полосу из заголовка таблицы */
+        .assign-page .table thead th {
+            background: #f1f5f9; /* светлая шапка */
+            color: var(--primary-blue);
+        }
+    </style>
+    <div class="assign-page">
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="border-radius:16px; overflow:hidden;">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <h2 class="h5 mb-0 me-3">
+                            <i class="fas fa-user-plus me-2"></i>Назначить на курс
+                        </h2>
+                        <div style="min-width:280px; max-width:360px;">
+                            <label class="form-label text-white small mb-1">Пользователь</label>
+                            {{ form.user_id(class="form-select form-select-sm", id="user_select") }}
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body p-4">
-                    <form action="" method="post">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="mb-3">
-                            {{ form.user_id.label(class="form-label") }}
-                            {{ form.user_id(class="form-select") }}
-                            {% for error in form.user_id.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
+                <div class="card-body" style="background:white;">
+                    <div id="coursesContainer" class="mt-4" style="display:none;">
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Курс</th>
+                                        <th class="text-center" style="width:180px;">Статус</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="coursesTableBody">
+                                </tbody>
+                            </table>
                         </div>
-                        
-                        <div class="mb-4">
-                            {{ form.course_id.label(class="form-label") }}
-                            {{ form.course_id(class="form-select") }}
-                            {% for error in form.course_id.errors %}
-                                <div class="text-danger small mt-1">{{ error }}</div>
-                            {% endfor %}
-                        </div>
-                        
-                        <div class="d-grid">
-                            {{ form.submit(class="btn btn-primary btn-lg") }}
-                        </div>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+    </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+    function renderToggle(assigned) {
+        var yesClass = assigned ? 'active-yes' : 'inactive';
+        var noClass = !assigned ? 'active-no' : 'inactive';
+        return '<div class="status-toggle">'
+            + '<button type="button" class="btn btn-yes '+ yesClass +'" title="Назначен">'
+            + '<i class="fas fa-check-circle fa-lg"></i>'
+            + '</button>'
+            + '<button type="button" class="btn btn-no '+ noClass +'" title="Не назначен">'
+            + '<i class="fas fa-times-circle fa-lg"></i>'
+            + '</button>'
+            + '</div>';
+    }
+
+    function loadCourses(userId) {
+        if (!userId) { return; }
+        $.getJSON('{{ url_for('api_user_courses_status') }}', { user_id: userId }, function(data) {
+            if (!data || !data.courses) { return; }
+            var tbody = $('#coursesTableBody');
+            tbody.empty();
+            data.courses.forEach(function(c) {
+                var row = $('<tr></tr>');
+                row.append('<td>'+ c.name +'</td>');
+                var actionCell = $('<td class="text-center"></td>');
+                var toggle = $(renderToggle(c.assigned));
+                toggle.find('.btn-yes').on('click', function() {
+                    setAssignment(userId, c.id, true, toggle);
+                });
+                toggle.find('.btn-no').on('click', function() {
+                    setAssignment(userId, c.id, false, toggle);
+                });
+                actionCell.append(toggle);
+                row.append(actionCell);
+                tbody.append(row);
+            });
+            $('#coursesContainer').show();
+        });
+    }
+
+    function bindToggleHandlers(wrapper, userId, courseId) {
+        wrapper.find('.btn-yes').off('click').on('click', function() {
+            setAssignment(userId, courseId, true, wrapper);
+        });
+        wrapper.find('.btn-no').off('click').on('click', function() {
+            setAssignment(userId, courseId, false, wrapper);
+        });
+    }
+
+    function setAssignment(userId, courseId, assigned, toggleEl) {
+        $.ajax({
+            url: '{{ url_for('api_set_assignment') }}',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ user_id: userId, course_id: courseId, assigned: assigned }),
+            success: function(resp) {
+                if (resp && typeof resp.assigned !== 'undefined') {
+                    var newToggle = $(renderToggle(resp.assigned));
+                    toggleEl.replaceWith(newToggle);
+                    bindToggleHandlers(newToggle, userId, courseId);
+                }
+            }
+        });
+    }
+
+    $(function() {
+        var userSelect = $('#user_select');
+        userSelect.off('change').on('change', function() {
+            var uid = $(this).val();
+            loadCourses(uid);
+        });
+        if (userSelect.val()) {
+            loadCourses(userSelect.val());
+        }
+    });
+</script>
+{% endblock %}
+
