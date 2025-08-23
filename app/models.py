@@ -70,10 +70,17 @@ class User(UserMixin, db.Model):
     enrolled_courses: so.Mapped[List['Course']] = so.relationship(
         secondary=student_course_association,
         back_populates='students',
-        collection_class=list
+        collection_class=list,
+        lazy='joined'
     )
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='student',
+        cascade="all, delete-orphan"
+    )
+    
+    # Связь с новостями (для администраторов)
+    news_posts: so.Mapped[List['News']] = so.relationship(
+        back_populates='author',
         cascade="all, delete-orphan"
     )
 
@@ -89,6 +96,16 @@ class User(UserMixin, db.Model):
     def avatar(self, size: int) -> str:
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
+
+    # Методы для проверки ролей
+    def is_admin(self) -> bool:
+        return self.role == 'admin'
+    
+    def is_teacher(self) -> bool:
+        return self.role == 'teacher'
+    
+    def is_student(self) -> bool:
+        return self.role == 'student'
 
         # Методы для управления курсами (для учителей)
     def add_teaching_course(self, course: 'Course') -> None:
@@ -130,6 +147,7 @@ class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     name: so.Mapped[str] = so.mapped_column(sa.String(100), unique=True, index=True)
     description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
+    is_favorite: so.Mapped[bool] = so.mapped_column(default=False)
 
     # Связи
     teachers: so.Mapped[List['User']] = so.relationship(
@@ -165,6 +183,18 @@ class AttendanceRecord(db.Model):
 
     def __repr__(self) -> str:
         return f'<AttendanceRecord for {self.student.username} on {self.course.name} at {self.date.strftime("%Y-%m-%d %H:%M")}>'
+
+class News(db.Model):
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    title: so.Mapped[str] = so.mapped_column(sa.String(200), nullable=False)
+    content: so.Mapped[str] = so.mapped_column(sa.Text, nullable=False)
+    author_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey('user.id'), nullable=False)
+    author: so.Mapped['User'] = so.relationship(back_populates='news_posts')
+    created_at: so.Mapped[datetime] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
+    updated_at: so.Mapped[Optional[datetime]] = so.mapped_column(default=None, onupdate=lambda: datetime.now(timezone.utc))
+    
+    def __repr__(self) -> str:
+        return f'<News {self.title} by {self.author.username}>'
 
 @login.user_loader
 def load_user(id: int) -> Optional[User]:

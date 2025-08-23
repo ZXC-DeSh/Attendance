@@ -12,6 +12,8 @@ db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login = LoginManager(app)
 login.login_view = 'login'
+login.login_message = 'Пожалуйста, войдите в систему для доступа к этой странице.'
+login.login_message_category = 'info'
 mail = Mail(app)
 csrf = CSRFProtect(app)
 

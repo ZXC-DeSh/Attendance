@@ -1,9 +1,10 @@
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField
-from wtforms.validators import ValidationError, DataRequired, Email, EqualTo, Length
+from wtforms.validators import ValidationError, DataRequired, Email, EqualTo, Length, Regexp
 import sqlalchemy as sa
 from app import db
 from app.models import User, Course
+import re
 
 
 class LoginForm(FlaskForm):
@@ -13,11 +14,18 @@ class LoginForm(FlaskForm):
     submit = SubmitField('Войти')
 
 class RegistrationForm(FlaskForm):
-    username = StringField('Имя пользователя', validators=[DataRequired()])
+    username = StringField('Имя пользователя', validators=[
+        DataRequired(),
+        Length(min=3, max=20, message='Имя пользователя должно быть от 3 до 20 символов'),
+        Regexp(r'^[a-zA-Z0-9_]+$', message='Имя пользователя может содержать только буквы, цифры и знак подчёркивания')
+    ])
     email = StringField('Email', validators=[DataRequired(), Email()])
-    password = PasswordField('Пароль', validators=[DataRequired()])
+    password = PasswordField('Пароль', validators=[
+        DataRequired(),
+        Length(min=6, message='Пароль должен содержать минимум 6 символов')
+    ])
     password2 = PasswordField('Повторите пароль', validators=[DataRequired(), EqualTo('password')])
-    role = SelectField('Роль', choices=[('student', 'Студент'), ('teacher', 'Преподаватель')], validators=[DataRequired()])
+    role = SelectField('Роль', choices=[('student', 'Студент'), ('teacher', 'Преподаватель'), ('admin', 'Администратор')], validators=[DataRequired()])
     submit = SubmitField('Зарегистрироваться')
 
     def validate_username(self, username):
@@ -33,7 +41,11 @@ class RegistrationForm(FlaskForm):
             raise ValidationError('Пожалуйста, используйте другой адрес электронной почты.')
 
 class EditProfileForm(FlaskForm):
-    username = StringField('Имя пользователя', validators=[DataRequired()])
+    username = StringField('Имя пользователя', validators=[
+        DataRequired(),
+        Length(min=3, max=20, message='Имя пользователя должно быть от 3 до 20 символов'),
+        Regexp(r'^[a-zA-Z0-9_]+$', message='Имя пользователя может содержать только буквы, цифры и знак подчёркивания')
+    ])
     about_me = TextAreaField('О себе', validators=[Length(min=0, max=140)])
     submit = SubmitField('Сохранить')
 
@@ -49,7 +61,10 @@ class EditProfileForm(FlaskForm):
                 raise ValidationError('Пожалуйста, используйте другое имя пользователя.')
 
 class CourseForm(FlaskForm):
-    name = StringField('Название курса', validators=[DataRequired()])
+    name = StringField('Название курса', validators=[
+        DataRequired(),
+        Length(min=3, max=100, message='Название курса должно быть от 3 до 100 символов')
+    ])
     description = TextAreaField('Описание', validators=[Length(min=0, max=256)])
     submit = SubmitField('Сохранить курс')
 
@@ -93,3 +108,14 @@ class ResetPasswordForm(FlaskForm):
     password = PasswordField('Новый пароль', validators=[DataRequired()])
     password2 = PasswordField('Повторите пароль', validators=[DataRequired(), EqualTo('password')])
     submit = SubmitField('Сбросить пароль')
+
+class NewsForm(FlaskForm):
+    title = StringField('Заголовок', validators=[
+        DataRequired(),
+        Length(min=5, max=200, message='Заголовок должен быть от 5 до 200 символов')
+    ])
+    content = TextAreaField('Содержание', validators=[
+        DataRequired(),
+        Length(min=10, max=5000, message='Содержание должно быть от 10 до 5000 символов')
+    ])
+    submit = SubmitField('Опубликовать')

@@ -217,6 +217,72 @@
             background: linear-gradient(135deg, var(--secondary-blue) 0%, var(--accent-blue) 100%);
             border: none;
         }
+        
+        /* Стили для выпадающего списка профиля */
+        .profile-dropdown {
+            min-width: 0;
+            width: 100%;
+            left: 0 !important;
+            right: 0 !important;
+            transform: none !important;
+            margin: 0;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            position: absolute;
+            top: 100%;
+        }
+        
+        .profile-dropdown .dropdown-item {
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            border-radius: 0;
+        }
+        
+        .profile-dropdown .dropdown-item:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .profile-dropdown .dropdown-item:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .profile-dropdown .dropdown-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-left: 3px solid transparent;
+        }
+        
+        .profile-dropdown .dropdown-item:hover {
+            background-color: rgba(59, 130, 246, 0.08);
+            border-left-color: var(--secondary-blue);
+        }
+        
+        .profile-dropdown .dropdown-item:first-child:hover {
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .profile-dropdown .dropdown-item:last-child:hover {
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .profile-dropdown .dropdown-item i {
+            width: 20px;
+            text-align: center;
+            margin-right: 0.5rem;
+        }
+        
+        /* Контейнер профиля */
+        .nav-item.dropdown {
+            position: relative;
+            margin-right: 1rem;
+        }
+        
+        .nav-item.dropdown .dropdown-toggle {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
     </style>
   </head>
   
@@ -239,34 +305,71 @@
                   <i class="fas fa-home me-1"></i>Главная
               </a>
             </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('user', username=current_user.username) }}">
-                  <i class="fas fa-user me-1"></i>Профиль
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('courses') }}">
-                  <i class="fas fa-book me-1"></i>Курсы
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('chat_list') }}">
-                  <i class="fas fa-comments me-1"></i>Чат
-              </a>
-            </li>
-            {% if current_user.role == 'teacher' %}
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('mark_attendance') }}">
-                  <i class="fas fa-check-circle me-1"></i>Отметить посещаемость
-              </a>
-            </li>
-            <li class="nav-item">
-              <a class="nav-link" href="{{ url_for('assign_to_course') }}">
-                  <i class="fas fa-user-plus me-1"></i>Назначить на курс
-              </a>
-            </li>
+                          <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('courses') }}">
+                    <i class="fas fa-book me-1"></i>Курсы
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('calendar') }}">
+                    <i class="fas fa-calendar me-1"></i>Календарь
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('group') }}">
+                    <i class="fas fa-users me-1"></i>Группа
+                </a>
+              </li>
+              {% if current_user.role == 'admin' %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('admin_panel') }}">
+                    <i class="fas fa-cogs me-1"></i>Админ-панель
+                </a>
+              </li>
+              {% endif %}
+              {% if current_user.role == 'teacher' %}
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('mark_attendance') }}">
+                    <i class="fas fa-check-circle me-1"></i>Отметить посещаемость
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('assign_to_course') }}">
+                    <i class="fas fa-user-plus me-1"></i>Назначить на курс
+                </a>
+              </li>
 
-            {% endif %}
+              {% endif %}
+          </ul>
+          
+          <!-- Меню профиля -->
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" 
+                 id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <img src="{{ current_user.avatar(32) }}" alt="Аватар" 
+                     class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                <span>{{ current_user.username }}</span>
+              </a>
+              <ul class="dropdown-menu profile-dropdown" aria-labelledby="profileDropdown">
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('user', username=current_user.username) }}">
+                    <i class="fas fa-user me-2"></i>Профиль
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('chat_list') }}">
+                    <i class="fas fa-comments me-2"></i>Чат
+                  </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt me-2"></i>Выход
+                  </a>
+                </li>
+              </ul>
+            </li>
           </ul>
           <!-- Кнопка выхода перенесена на страницу профиля -->
         </div>
