@@ -1,77 +1,1779 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h2 mb-0">
-            <i class="fas fa-book me-2"></i>Курсы
+<div class="container">
+    <!-- Заголовок страницы курсов -->
+    <div class="text-center mb-4">
+        <h1 class="display-4 text-primary">
+            <i class="fas fa-book me-3"></i>Курсы
         </h1>
-        {% if current_user.role == 'teacher' %}
-            <a href="{{ url_for('create_course') }}" class="btn btn-primary">
-                <i class="fas fa-plus me-1"></i>Создать курс
-            </a>
-        {% endif %}
+        <p class="lead text-muted">Просмотр и управление курсами</p>
     </div>
 
-    {% if courses %}
-        <div class="row">
-            {% for course in courses %}
-                <div class="col-6 col-lg-3 mb-3">
-                    <div class="card border-0 shadow-sm h-100" style="min-height: 160px;">
-                        <div class="card-body py-3">
-                            <div class="text-center mb-2">
-                                <i class="fas fa-graduation-cap fa-2x text-primary"></i>
+    <!-- Улучшенный поиск и фильтры -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+            <div class="row g-3 align-items-end">
+                <!-- Поиск с мгновенным результатом -->
+                <div class="col-md-4" style="position: relative;">
+                    <label for="liveSearch" class="form-label fw-semibold text-muted mb-2">
+                        <i class="fas fa-search me-2"></i>Поиск курсов
+                    </label>
+                    <div class="search-container position-relative">
+                        <div class="input-group input-group-sm">
+                            <input type="text" class="form-control rounded-end" id="liveSearch" placeholder="Введите название курса..." autocomplete="off">
+                            <button class="btn btn-link btn-sm text-muted p-0 me-2" type="button" id="clearSearch" style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); z-index: 10;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Индикатор загрузки -->
+                        <div class="search-loading position-absolute" style="display: none; right: 35px; top: 50%; transform: translateY(-50%); z-index: 1002;">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status" style="width: 16px; height: 16px;">
+                                <span class="visually-hidden">Поиск...</span>
                             </div>
-                            <h6 class="card-title text-primary text-center mb-2" style="font-size: 1rem;">{{ course.name }}</h6>
-                            {% if course.description %}
-                                <p class="card-text text-muted text-center small">{{ course.description }}</p>
-                            {% endif %}
-                            
-                            {% if current_user.role == 'teacher' %}
-                                <div class="d-flex justify-content-center gap-2 mt-2">
-                                    <a href="{{ url_for('edit_course', course_id=course.id) }}" class="btn btn-outline-primary btn-sm">
-                                        <i class="fas fa-edit me-1"></i>Редактировать
-                                    </a>
-                                    <form action="{{ url_for('delete_course', course_id=course.id) }}" method="post" style="display:inline;">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" 
-                                                onclick="return confirm('Вы уверены, что хотите удалить этот курс?');">
-                                            <i class="fas fa-trash me-1"></i>Удалить
-                                        </button>
-                                    </form>
-                                </div>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-        
-        {% if prev_url or next_url %}
-            <div class="d-flex justify-content-between align-items-center mt-3">
-                <div>
-                    {% if prev_url %}
-                        <a href="{{ prev_url }}" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-chevron-left me-1"></i>Предыдущие
-                        </a>
-                    {% endif %}
-                </div>
-                <div>
-                    {% if next_url %}
-                        <a href="{{ next_url }}" class="btn btn-outline-primary btn-sm">
-                            Следующие<i class="fas fa-chevron-right ms-1"></i>
-                        </a>
-                    {% endif %}
+                
+                <!-- Большой пробел -->
+                <div class="col-md-4"></div>
+                
+                <!-- Сортировка и фильтр в одной колонке -->
+                <div class="col-md-4">
+                    <div class="row g-2">
+                        <!-- Сортировка -->
+                        <div class="col-6">
+                            <label for="sort_by" class="form-label fw-semibold text-muted mb-2">
+                                <i class="fas fa-sort me-2"></i>Сортировка
+                            </label>
+                            <select class="form-select form-select-sm h-100" name="sort_by" id="sort_by">
+                                                        <option value="favorites_first" {% if sort_by == 'favorites_first' %}selected{% endif %}>
+                            По умолчанию
+                        </option>
+                                <option value="name" {% if sort_by == 'name' %}selected{% endif %}>
+                                    По названию (А-Я)
+                                </option>
+                                <option value="name_desc" {% if sort_by == 'name_desc' %}selected{% endif %}>
+                                    По названию (Я-А)
+                                </option>
+                            </select>
+                        </div>
+                        
+                        <!-- Фильтр по избранным -->
+                        <div class="col-6">
+                            <label for="filter_favorites" class="form-label fw-semibold text-muted mb-2">
+                                <i class="fas fa-filter me-2"></i>Фильтр
+                            </label>
+                            <select class="form-select form-select-sm h-100" name="filter_favorites" id="filter_favorites">
+                                <option value="all" {% if filter_favorites == 'all' %}selected{% endif %}>
+                                    Все курсы
+                                </option>
+                                <option value="favorites" {% if filter_favorites == 'favorites' %}selected{% endif %}>
+                                    Только избранные
+                                </option>
+                                <option value="not_favorites" {% if filter_favorites == 'not_favorites' %}selected{% endif %}>
+                                    Не избранные
+                                </option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
-        {% endif %}
-    {% else %}
-        <div class="text-center py-5">
-            <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
-            <p class="text-muted">Пока нет доступных курсов.</p>
-            {% if current_user.role == 'teacher' %}
-                <a href="{{ url_for('create_course') }}" class="btn btn-primary">
-                    <i class="fas fa-plus me-1"></i>Создать первый курс
-                </a>
-            {% endif %}
         </div>
-    {% endif %}
+    </div>
+
+    <!-- Список курсов -->
+    <div id="coursesContainer" style="position: relative; z-index: 1;">
+        {% if courses %}
+            <div class="row courses-container">
+                {% for course in courses %}
+                    <div class="col-md-6 col-lg-4 col-xl-3 mb-4" data-course-id="{{ course.id }}">
+                        <div class="card h-100 border-0 shadow-sm course-card position-relative">
+                            <!-- Кнопка закрепки для добавления в избранное -->
+                            <button onclick="toggleFavorite({{ course.id }}, this)" class="btn btn-sm btn-outline-secondary border-0 favorite-btn" data-course-id="{{ course.id }}" data-is-favorite="false" title="Добавить в избранное">
+                                <i class="fas fa-thumbtack text-secondary"></i>
+                            </button>
+                            
+                            <div class="card-body text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-book fa-3x text-primary"></i>
+                                </div>
+                                <h5 class="card-title text-primary">{{ course.name }}</h5>
+                                {% if course.description %}
+                                    <p class="card-text text-muted course-description">{{ course.description }}</p>
+                                {% endif %}
+                                
+                                <!-- Статистика курса -->
+                                <div class="course-stats">
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <small class="text-muted">Преподаватели</small>
+                                            <div class="fw-bold text-primary">{{ course.teachers|length }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">Студенты</small>
+                                            <div class="fw-bold text-success">{{ course.students|length }}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Действия -->
+                                <div class="d-grid gap-2">
+                                    {% if current_user.role == 'teacher' %}
+                                        <a href="{{ url_for('mark_attendance') }}?course_id={{ course.id }}" 
+                                           class="btn btn-outline-primary btn-sm action-btn">
+                                            <i class="fas fa-check me-1"></i>Отметить посещаемость
+                                        </a>
+                                        <a href="{{ url_for('assign_to_course') }}?course_id={{ course.id }}" 
+                                           class="btn btn-outline-success btn-sm action-btn">
+                                            <i class="fas fa-user-plus me-1"></i>Назначить
+                                        </a>
+                                    {% endif %}
+                                    
+                                    {% if current_user.role == 'admin' %}
+                                        <a href="{{ url_for('edit_course', course_id=course.id) }}" 
+                                           class="btn btn-outline-primary btn-sm action-btn">
+                                            <i class="fas fa-edit me-1"></i>Редактировать
+                                        </a>
+                                        <a href="{{ url_for('delete_course', course_id=course.id) }}" 
+                                           class="btn btn-outline-danger btn-sm action-btn"
+                                           onclick="return confirm('Вы уверены, что хотите удалить этот курс?')">
+                                            <i class="fas fa-trash me-1"></i>Удалить
+                                        </a>
+                                    {% endif %}
+                                    
+                                    <!-- Заглушка для симметрии, если кнопок мало -->
+                                    {% if current_user.role == 'teacher' and not current_user.role == 'admin' %}
+                                        <div class="action-btn-placeholder"></div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Пагинация -->
+            {% if next_url or prev_url %}
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    {% if prev_url %}
+                        <a href="{{ prev_url }}" class="btn btn-outline-primary">
+                            <i class="fas fa-chevron-left me-1"></i>Предыдущие курсы
+                        </a>
+                    {% endif %}
+                    {% if next_url %}
+                        <a href="{{ next_url }}" class="btn btn-outline-primary">
+                            Следующие курсы<i class="fas fa-chevron-right ms-1"></i>
+                        </a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-book fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Курсы не найдены.</p>
+                {% if search or filter_favorites != 'all' %}
+                    <p class="text-muted">Попробуйте изменить параметры поиска или фильтры.</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* CSS переменные для единообразных цветов */
+:root {
+    --bs-primary: #0d6efd;
+    --bs-primary-dark: #0b5ed7;
+    --bs-success: #198754;
+    --bs-success-dark: #157347;
+}
+
+/* Стили для карточек курсов */
+.course-card {
+    position: relative !important;
+    height: 100%;
+    z-index: 1 !important;
+    transition: all 0.3s ease-in-out;
+}
+
+/* Анимация для скрытых курсов */
+.course-card.hidden {
+    opacity: 0;
+    transform: scale(0.8);
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* Анимация для видимых курсов */
+.course-card.visible {
+    opacity: 1;
+    transform: scale(1);
+    height: auto;
+    margin-bottom: 1.5rem;
+    pointer-events: auto;
+}
+
+/* Плавная анимация для курсов */
+.course-card {
+    transition: all 0.3s ease-in-out;
+}
+
+/* Скрытые курсы */
+.course-card.hidden {
+    display: none !important;
+}
+
+/* Видимые курсы */
+.course-card.visible {
+    display: block !important;
+}
+
+/* Правильное поведение Bootstrap сетки */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+/* Гарантируем, что курсы не перекрывают результаты поиска */
+.courses-container, #coursesContainer {
+    z-index: 1 !important;
+    position: relative !important;
+}
+
+/* Стили для карточек курсов */
+.course-card {
+    position: relative;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Стили для поиска */
+.search-container {
+    position: relative;
+    z-index: 1000;
+}
+
+.search-container .input-group {
+    position: relative;
+    overflow: visible;
+}
+
+.search-container .input-group .form-control {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+}
+
+.search-container .form-control {
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    background: #fff;
+    box-shadow: none;
+    border-radius: 0.5rem;
+    height: 38px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    border-right: 1px solid #dee2e6;
+}
+
+.search-container .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    outline: none;
+}
+
+
+
+/* Унифицированная высота для всех полей */
+.form-select-sm.h-100 {
+    height: 38px !important;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-select-sm.h-100:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    outline: none;
+}
+
+
+
+/* Одинаковые контейнеры для сортировки и фильтрации */
+.col-md-4 .col-6 {
+    margin-bottom: 0;
+}
+
+/* Отключаем анимацию подпрыгивания для контейнера поиска */
+.card.border-0.shadow-sm.mb-4 {
+    transition: none !important;
+}
+
+.card.border-0.shadow-sm.mb-4:hover {
+    transform: none !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+/* Стили для кнопки закрепки */
+.favorite-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(5px);
+}
+
+.favorite-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 1);
+}
+
+.favorite-btn.favorite {
+    background: #ffc107;
+    border-color: #ffc107;
+}
+
+.favorite-btn.favorite .fas {
+    color: #fff !important;
+}
+
+.favorite-btn:not(.favorite) .fas {
+    color: #6c757d !important;
+}
+
+/* Стили для результатов поиска */
+.search-results {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    background: #fff;
+    margin-top: 0.25rem;
+    max-height: 400px;
+    overflow-y: auto;
+    z-index: 99999 !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+}
+
+.search-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+.search-results::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.search-results::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.search-results::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+.search-result-item {
+    cursor: pointer;
+    border-bottom: 1px solid #f8f9fa;
+    padding: 0.75rem !important;
+    transition: background-color 0.2s ease;
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+/* Абсолютная защита z-index для результатов поиска */
+.search-result-item,
+.search-result-item:hover,
+.search-result-item:focus,
+.search-result-item:active,
+.search-result-item:visited {
+    z-index: 99999 !important;
+    position: relative !important;
+}
+
+.search-result-item:active {
+    transform: none;
+    background-color: #e9ecef;
+}
+
+.search-result-item p {
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.search-result-item small {
+    font-size: 0.75rem;
+}
+
+/* Стили для иконок в результатах поиска */
+.search-result-item .fa-book {
+    color: var(--bs-primary-dark) !important;
+    margin-right: 0.5rem;
+}
+
+
+
+/* Стили для статистики в результатах поиска */
+.search-result-item .text-primary,
+.search-result-item .text-success {
+    font-weight: 600;
+}
+
+.search-result-item .fa-chalkboard-teacher,
+.search-result-item .fa-user-graduate {
+    color: #6c757d;
+    margin-right: 0.25rem;
+}
+
+/* Убираем старый стиль для fa-book - он определен ниже */
+
+/* Убираем старые защитные стили - они заменены на более эффективные */
+
+/* Убираем hover эффекты для статистики */
+/* .search-result-item:hover span.text-primary {
+    color: var(--bs-primary-dark) !important;
+}
+
+.search-result-item:hover span.text-success {
+    color: var(--bs-success-dark) !important;
+} */
+
+/* Улучшенные стили для пустых результатов */
+.search-results .text-muted {
+    color: #6c757d !important;
+}
+
+.search-results .fa-search {
+    color: #dee2e6;
+    opacity: 0.7;
+}
+
+.search-results .text-muted p {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+.search-results .text-muted small {
+    font-size: 0.8rem;
+    opacity: 0.8;
+}
+
+/* Стили для пустых результатов поиска */
+.search-results .text-center.text-muted {
+    padding: 2rem 1rem;
+}
+
+.search-results .text-center.text-muted .fa-search {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.search-results .text-center.text-muted p {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.search-results .text-center.text-muted small {
+    opacity: 0.7;
+}
+
+/* Улучшенные стили для ошибок поиска */
+.search-results .text-danger {
+    color: #dc3545 !important;
+}
+
+.search-results .fa-exclamation-triangle {
+    color: #dc3545;
+    opacity: 0.8;
+}
+
+/* Стили для сообщений об ошибках */
+.search-results .text-center.text-danger {
+    padding: 1rem;
+}
+
+.search-results .text-center.text-danger .fa-exclamation-triangle {
+    margin-bottom: 0.5rem;
+}
+
+.search-results .text-center.text-danger p {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.search-results .text-center.text-danger small {
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.search-results .text-center.text-danger .btn {
+    margin-top: 0.5rem;
+}
+
+/* Анимации для результатов поиска */
+
+/* Убраны keyframes slideDown */
+
+.search-results {
+    /* Убрана анимация slideDown */
+}
+
+/* Анимация для подсветки курса */
+@keyframes highlightCourse {
+    0% {
+        box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(13, 110, 253, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+    }
+}
+
+.course-highlight {
+    animation: highlightCourse 2s ease-in-out;
+}
+
+/* Улучшенные стили для счетчика результатов */
+.search-stats {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    background: #f8f9fa;
+    border-radius: 0.25rem;
+    display: inline-block;
+    margin-top: 0.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.search-stats i {
+    color: #6c757d;
+    margin-right: 0.25rem;
+}
+
+.search-stats span {
+    font-weight: 600;
+    color: var(--bs-primary);
+}
+
+/* Улучшенные стили для кнопки очистки */
+#clearSearch {
+    border: none;
+    background: transparent;
+    color: #6c757d;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    position: absolute !important;
+    right: 8px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 10 !important;
+    transition: all 0.2s ease;
+}
+
+/* Убираем стандартные стили Bootstrap для input-group */
+.search-container .input-group {
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+
+
+#clearSearch:hover {
+    color: #dc3545;
+    background: #f8f9fa;
+    transform: scale(1.1);
+}
+
+#clearSearch:active {
+    transform: scale(0.95);
+}
+
+/* Стили для select элементов */
+.form-select-sm {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.form-select-sm:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* Стили для лейблов */
+.form-label {
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .search-results {
+        max-height: 250px;
+        margin-top: 0.5rem;
+    }
+    
+    .search-result-item {
+        padding: 0.5rem !important;
+    }
+    
+    .search-result-item h6 {
+        font-size: 0.85rem;
+    }
+    
+    .search-result-item p {
+        font-size: 0.75rem;
+    }
+    
+    /* На мобильных устройствах делаем кнопки на всю ширину */
+    .col-md-3.d-flex {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .col-md-3.d-flex .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Адаптация для мобильных устройств */
+    .search-container {
+        margin-bottom: 1rem;
+    }
+    
+    .search-results {
+        position: fixed !important;
+        top: auto !important;
+        left: 1rem !important;
+        right: 1rem !important;
+        width: calc(100% - 2rem) !important;
+        max-height: 60vh !important;
+        z-index: 9999 !important;
+    }
+}
+
+/* Симметрия и высота кнопок */
+.action-btn {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.375rem 0.75rem;
+}
+
+.action-btn i {
+    flex-shrink: 0;
+    margin-right: 0.25rem;
+}
+
+/* Заглушка для симметрии */
+.action-btn-placeholder {
+    height: 38px;
+    background: transparent;
+}
+
+/* Стили для кнопок */
+.course-card .btn-outline-primary {
+    background-color: transparent;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.course-card .btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: white !important;
+    border-color: #0d6efd;
+}
+
+.course-card .btn-outline-success {
+    color: #198754;
+    border-color: #198754;
+    background-color: transparent;
+}
+
+.course-card .btn-outline-success:hover {
+    background-color: #198754;
+    color: white !important;
+    border-color: #198754;
+}
+
+/* Стили для кнопки удаления */
+.course-card .btn-outline-danger {
+    color: #dc3545 !important;
+    border-color: #dc3545 !important;
+    background-color: transparent !important;
+}
+
+.course-card .btn-outline-danger:hover {
+    background-color: #dc3545 !important;
+    color: white !important;
+    border-color: #dc3545 !important;
+}
+
+
+
+/* Обеспечиваем одинаковую высоту карточек */
+.course-card .card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.course-card .card-body .d-grid {
+    margin-top: auto;
+}
+
+/* Фиксированная высота для статистики */
+.course-stats {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: auto;
+    margin-bottom: 1rem;
+}
+
+.course-stats .row {
+    width: 100%;
+    margin: 0;
+    height: 100%;
+    align-items: center;
+}
+
+.course-stats .col-6 {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.course-stats small {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    height: 1rem;
+}
+
+.course-stats .fw-bold {
+    font-size: 1.25rem;
+    line-height: 1;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Фиксированное позиционирование кнопок */
+.course-card .card-body .d-grid {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Стили для описания курса */
+.course-description {
+    margin-bottom: 1rem;
+    min-height: 3rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.5;
+}
+
+/* Стили для оверлея загрузки */
+#pageLoadingOverlay {
+    backdrop-filter: blur(2px);
+}
+
+/* Анимация появления результатов */
+@keyframes fadeIn {
+    0% {
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+/* Анимация для подсветки курса */
+@keyframes highlightCourse {
+    0% {
+        box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(13, 110, 253, 0.8);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(13, 110, 253, 0.5);
+    }
+}
+
+.course-highlight {
+    animation: highlightCourse 2s ease-in-out;
+}
+
+/* Стили для индикатора загрузки */
+.search-loading {
+    z-index: 1002;
+    position: absolute !important;
+    right: 35px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+}
+
+.search-loading .spinner-border {
+    width: 16px !important;
+    height: 16px !important;
+    border-width: 0.125em !important;
+}
+
+/* Стили для кнопок фильтров */
+#applyFilters, #resetFilters {
+    padding: 0.375rem 0.75rem;
+    font-weight: 500;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+}
+
+#applyFilters:hover {
+    box-shadow: none;
+}
+
+#resetFilters:hover {
+    box-shadow: none;
+}
+
+/* Стили для select элементов */
+.form-select-sm {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+.form-select-sm:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* Стили для лейблов */
+.form-label {
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .search-results {
+        max-height: 250px;
+    }
+    
+    .search-result-item {
+        padding: 0.5rem !important;
+    }
+    
+    .search-result-item h6 {
+        font-size: 0.85rem;
+    }
+    
+    .search-result-item p {
+        font-size: 0.75rem;
+    }
+    
+    /* На мобильных устройствах делаем кнопки на всю ширину */
+    .col-md-3.d-flex {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .col-md-3.d-flex .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Базовые цвета для элементов поиска - используем тёмно-синий цвет */
+.search-result-item h6 {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    color: var(--bs-primary-dark) !important;
+}
+
+.search-result-item .fa-book {
+    color: var(--bs-primary-dark) !important;
+}
+
+/* Убираем hover эффекты для заголовков и иконок */
+/* .search-result-item:hover h6,
+.search-result-item:focus h6,
+.search-result-item:active h6 {
+    color: var(--bs-primary-dark) !important;
+    z-index: inherit !important;
+}
+
+.search-result-item:hover .fa-book,
+.search-result-item:focus .fa-book,
+.search-result-item:active .fa-book {
+    color: var(--bs-primary-dark) !important;
+    z-index: inherit !important;
+}
+
+/* Защита от изменения z-index при hover на элементах результатов */
+.search-result-item:hover,
+.search-result-item:focus,
+.search-result-item:active {
+    z-index: inherit !important;
+    position: relative !important;
+} */
+
+
+
+/* Стили для поиска - более специфичные */
+.col-md-5 .search-container,
+.search-container {
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
+/* Стили для результатов поиска - более специфичные */
+.col-md-5 .search-results,
+.search-container .search-results,
+.search-results {
+    border: 1px solid #e9ecef !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    background: #fff !important;
+    margin-top: 0.25rem !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    z-index: 1003 !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+}
+
+/* Исправляем z-index для всех элементов поиска */
+.search-container {
+    z-index: 1000 !important;
+}
+
+.search-loading {
+    z-index: 1002 !important;
+}
+
+.search-results {
+    z-index: 1003 !important;
+}
+
+/* Убеждаемся, что контейнер курсов имеет низкий z-index */
+#coursesContainer {
+    z-index: 1 !important;
+    position: relative !important;
+}
+
+.courses-container {
+    z-index: 1 !important;
+    position: relative !important;
+}
+
+.course-card {
+    z-index: 1 !important;
+    position: relative !important;
+}
+
+/* Исправляем overflow для input-group */
+.search-container .input-group {
+    overflow: visible !important;
+}
+
+/* Убираем overflow: hidden у родительских элементов */
+
+/* Абсолютная защита z-index для контейнера результатов */
+.search-results,
+.search-results:hover,
+.search-results:focus,
+.search-results:active,
+.search-results:visited,
+.search-results *,
+.search-results *:hover,
+.search-results *:focus,
+.search-results *:active,
+.search-results *:visited {
+    z-index: 99999 !important;
+    position: absolute !important;
+}
+
+/* Базовые стили для результатов поиска */
+.search-results {
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    margin-top: 0.25rem !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+}
+
+/* Максимальная защита z-index для всех состояний */
+.search-results,
+.search-results:hover,
+.search-results:focus,
+.search-results:active,
+.search-results:visited {
+    z-index: 99999 !important;
+    position: absolute !important;
+}
+
+/* Гарантируем высокий z-index для всех элементов результатов */
+.search-results *,
+.search-results *:hover,
+.search-results *:focus,
+.search-results *:active,
+.search-results *:visited {
+    z-index: inherit !important;
+}
+
+/* Дополнительные стили для предотвращения перекрытия */
+/* Максимальная защита от изменения z-index */
+.search-results,
+.search-results:hover,
+.search-results:focus,
+.search-results:active,
+.search-results:visited,
+.search-results *,
+.search-results *:hover,
+.search-results *:focus,
+.search-results *:active,
+.search-results *:visited {
+    z-index: 99999 !important;
+}
+.search-results:not([style*="display: none"]) {
+    z-index: 9999 !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+}
+
+/* Убеждаемся, что контейнер поиска не обрезает результаты */
+.search-container {
+    overflow: visible !important;
+    position: relative !important;
+}
+
+/* Убираем overflow только у элементов поиска */
+.col-md-5 {
+    overflow: visible !important;
+}
+
+/* Дополнительные стили для предотвращения проблем с z-index */
+.search-container input,
+.search-container .search-loading,
+.search-container .search-results {
+    position: relative;
+}
+
+.search-results {
+    position: absolute !important;
+    z-index: 9999 !important;
+}
+
+/* Убеждаемся, что карточки курсов не перекрывают результаты поиска */
+.course-card,
+.courses-container,
+#coursesContainer {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* Стили для предотвращения обрезания результатов поиска */
+.search-container {
+    position: relative !important;
+    z-index: 1000 !important;
+    overflow: visible !important;
+}
+
+/* Убираем overflow: hidden только у элементов поиска */
+.search-container,
+.col-md-5 {
+    overflow: visible !important;
+}
+
+.course-description {
+    overflow: hidden !important;
+}
+
+/* Финальные стили для результатов поиска */
+.search-results {
+    position: absolute !important;
+    z-index: 9999 !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+    margin-top: 0.25rem !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Восстанавливаем нужные overflow только для элементов поиска */
+.search-container,
+.col-md-5 {
+    overflow: visible !important;
+}
+
+.course-description {
+    overflow: hidden !important;
+}
+
+.search-results {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+</style>
+
+<script>
+// При загрузке страницы настраиваем функциональность
+document.addEventListener('DOMContentLoaded', function() {
+    try {
+        // Сохраняем оригинальный HTML курсов для восстановления
+        const coursesContainer = document.getElementById('coursesContainer');
+        if (coursesContainer) {
+            window.originalCoursesHTML = coursesContainer.innerHTML;
+        }
+        
+        // Инициализируем кнопки избранного
+        const hasFavorites = initializeFavoriteButtons();
+        
+        // Автоматически применяем сортировку "избранные первыми" при загрузке
+        // если она выбрана по умолчанию ИЛИ есть избранные курсы
+        const sortSelect = document.getElementById('sort_by');
+        if ((sortSelect && sortSelect.value === 'favorites_first') || hasFavorites) {
+            // Небольшая задержка для полной инициализации DOM
+            setTimeout(() => {
+                resortCourses();
+            }, 100);
+        }
+        
+        // Настраиваем мгновенный поиск
+        setupLiveSearch();
+        
+        // Настраиваем обработчики фильтров
+        setupFilterHandlers();
+        
+    } catch (error) {
+        // Обработка ошибок инициализации
+    }
+});
+
+
+
+
+
+function showNotification(message, type) {
+    // Создаем уведомление
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Автоматически скрываем через 3 секунды
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+// Функция мгновенного поиска
+function setupLiveSearch() {
+    
+    const searchInput = document.getElementById('liveSearch');
+    const clearSearchBtn = document.getElementById('clearSearch');
+
+    if (!searchInput || !clearSearchBtn) {
+        return;
+    }
+
+    let searchTimeout;
+    let currentSearchTerm = '';
+
+    // Обработчик ввода в поле поиска
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        
+        // Очищаем предыдущий таймаут
+        clearTimeout(searchTimeout);
+        
+        // Если поле пустое, восстанавливаем все курсы и применяем текущие фильтры
+        if (!searchTerm) {
+            restoreAllCourses();
+            currentSearchTerm = '';
+            
+            // Применяем текущие фильтры и сортировку
+            const sortSelect = document.getElementById('sort_by');
+            const filterSelect = document.getElementById('filter_favorites');
+            
+            if (sortSelect) {
+                applySorting(sortSelect.value);
+            }
+            if (filterSelect) {
+                applyFilter(filterSelect.value);
+            }
+            return;
+        }
+
+        currentSearchTerm = searchTerm;
+
+        // Устанавливаем новый таймаут (поиск через 300ms после остановки ввода)
+        searchTimeout = setTimeout(() => {
+            performLiveSearch(searchTerm);
+        }, 300);
+    });
+
+    // Обработчик очистки поиска
+    clearSearchBtn.addEventListener('click', function() {
+        searchInput.value = '';
+        searchInput.focus();
+        currentSearchTerm = '';
+        
+        // Восстанавливаем все курсы
+        restoreAllCourses();
+    });
+
+    // Обработчик автоматического применения сортировки
+    const sortSelect = document.getElementById('sort_by');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            console.log('Применяется сортировка:', selectedValue);
+            
+            // Показываем индикатор загрузки
+            showPageLoading();
+            
+            // Применяем сортировку с перезагрузкой страницы для пагинации
+            applySorting(selectedValue);
+        });
+    }
+
+    // Обработчик автоматического применения фильтра
+    const filterSelect = document.getElementById('filter_favorites');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', function() {
+            const selectedValue = this.value;
+            console.log('Применяется фильтр:', selectedValue);
+            
+            // Показываем индикатор загрузки
+            showPageLoading();
+            
+            // Применяем фильтр с перезагрузкой страницы для пагинации
+            applyFilter(selectedValue);
+        });
+    }
+}
+
+// Функция восстановления всех курсов
+function restoreAllCourses() {
+    console.log('Восстанавливаем все курсы...');
+    
+    const coursesContainer = document.getElementById('coursesContainer');
+    if (!coursesContainer) return;
+    
+    // Получаем строку с курсами
+    const coursesRow = coursesContainer.querySelector('.row.courses-container');
+    if (!coursesRow) return;
+    
+    // Получаем все колонки курсов
+    const courseColumns = Array.from(coursesRow.querySelectorAll('.col-md-6, .col-lg-4, .col-xl-3'));
+    console.log('Найдено колонок курсов:', courseColumns.length);
+    
+    courseColumns.forEach(column => {
+        const card = column.querySelector('.course-card');
+        if (card) {
+            card.classList.remove('hidden');
+            card.classList.add('visible');
+        }
+        
+        // Показываем колонку
+        column.style.display = 'block';
+        
+        console.log('Курс восстановлен:', card?.querySelector('.card-title')?.textContent || 'Без названия');
+    });
+    
+    console.log('Восстановление завершено');
+}
+
+// Функция применения сортировки без перезагрузки страницы
+function applySorting(sortType) {
+    console.log('Применяем сортировку:', sortType);
+    
+    // Для правильной работы с пагинацией лучше перезагрузить страницу
+    // с новыми параметрами сортировки
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('sort_by', sortType);
+    
+    // Сохраняем текущий поисковый запрос
+    const searchInput = document.getElementById('liveSearch');
+    if (searchInput && searchInput.value.trim()) {
+        currentUrl.searchParams.set('search', searchInput.value.trim());
+    }
+    
+    // Сохраняем текущий фильтр
+    const filterSelect = document.getElementById('filter_favorites');
+    if (filterSelect) {
+        currentUrl.searchParams.set('filter_favorites', filterSelect.value);
+    }
+    
+    // Переходим на новую страницу с сортировкой
+    window.location.href = currentUrl.toString();
+}
+
+// Функция применения фильтра без перезагрузки страницы
+function applyFilter(filterType) {
+    console.log('Применяем фильтр:', filterType);
+    
+    // Для правильной работы с пагинацией лучше перезагрузить страницу
+    // с новыми параметрами фильтра
+    const currentUrl = new URL(window.location);
+    currentUrl.searchParams.set('filter_favorites', filterType);
+    
+    // Сохраняем текущий поисковый запрос
+    const searchInput = document.getElementById('liveSearch');
+    if (searchInput && searchInput.value.trim()) {
+        currentUrl.searchParams.set('search', searchInput.value.trim());
+    }
+    
+    // Сохраняем текущую сортировку
+    const sortSelect = document.getElementById('sort_by');
+    if (sortSelect) {
+        currentUrl.searchParams.set('sort_by', sortSelect.value);
+    }
+    
+    // Переходим на новую страницу с фильтром
+    window.location.href = currentUrl.toString();
+}
+
+// Функция переключения избранного статуса курса
+function toggleFavorite(courseId, button) {
+    console.log('Переключаем избранное для курса:', courseId);
+    
+    const isFavorite = button.getAttribute('data-is-favorite') === 'true';
+    const newFavoriteStatus = !isFavorite;
+    
+    // Обновляем атрибут и внешний вид кнопки
+    button.setAttribute('data-is-favorite', newFavoriteStatus.toString());
+    
+    if (newFavoriteStatus) {
+        button.classList.add('favorite');
+        button.title = 'Убрать из избранного';
+    } else {
+        button.classList.remove('favorite');
+        button.title = 'Добавить в избранное';
+    }
+    
+    // Сохраняем статус в localStorage
+    saveFavoriteStatus(courseId, newFavoriteStatus);
+    
+    // Пересортировываем курсы, если включена сортировка "избранные первыми"
+    const sortSelect = document.getElementById('sort_by');
+    if (sortSelect && sortSelect.value === 'favorites_first') {
+        resortCourses();
+    }
+    
+    console.log('Курс', courseId, 'теперь', newFavoriteStatus ? 'в избранном' : 'не в избранном');
+}
+
+// Функция сохранения статуса избранного в localStorage
+function saveFavoriteStatus(courseId, isFavorite) {
+    const favorites = JSON.parse(localStorage.getItem('courseFavorites') || '{}');
+    if (isFavorite) {
+        favorites[courseId] = true;
+    } else {
+        delete favorites[courseId];
+    }
+    localStorage.setItem('courseFavorites', JSON.stringify(favorites));
+}
+
+// Функция загрузки статуса избранного из localStorage
+function loadFavoriteStatus(courseId) {
+    const favorites = JSON.parse(localStorage.getItem('courseFavorites') || '{}');
+    return favorites[courseId] || false;
+}
+
+// Функция пересортировки курсов (избранные первыми)
+function resortCourses() {
+    console.log('Пересортировка курсов: избранные первыми');
+    
+    const coursesContainer = document.getElementById('coursesContainer');
+    if (!coursesContainer) {
+        console.log('Контейнер курсов не найден');
+        return;
+    }
+    
+    const coursesRow = coursesContainer.querySelector('.row.courses-container');
+    if (!coursesRow) {
+        console.log('Строка курсов не найдена');
+        return;
+    }
+    
+    const courseColumns = Array.from(coursesRow.querySelectorAll('.col-md-6, .col-lg-4, .col-xl-3'));
+    if (courseColumns.length === 0) {
+        console.log('Колонки курсов не найдены');
+        return;
+    }
+    
+    console.log(`Найдено ${courseColumns.length} колонок курсов для сортировки`);
+    
+    // Сортируем колонки: избранные первыми, затем по алфавиту
+    courseColumns.sort((a, b) => {
+        const buttonA = a.querySelector('.favorite-btn');
+        const buttonB = b.querySelector('.favorite-btn');
+        const isFavoriteA = buttonA && buttonA.getAttribute('data-is-favorite') === 'true';
+        const isFavoriteB = buttonB && buttonB.getAttribute('data-is-favorite') === 'true';
+        
+        console.log(`Сравниваем: ${a.querySelector('.card-title')?.textContent} (избранный: ${isFavoriteA}) vs ${b.querySelector('.card-title')?.textContent} (избранный: ${isFavoriteB})`);
+        
+        // Сначала избранные
+        if (isFavoriteA && !isFavoriteB) return -1;
+        if (!isFavoriteA && isFavoriteB) return 1;
+        
+        // Если оба избранные или оба не избранные, сортируем по алфавиту
+        const nameA = a.querySelector('.card-title')?.textContent?.toLowerCase() || '';
+        const nameB = b.querySelector('.card-title')?.textContent?.toLowerCase() || '';
+        return nameA.localeCompare(nameB, 'ru');
+    });
+    
+    // Перемещаем отсортированные колонки в строку
+    courseColumns.forEach((column, index) => {
+        const courseName = column.querySelector('.card-title')?.textContent || 'Без названия';
+        const isFavorite = column.querySelector('.favorite-btn')?.getAttribute('data-is-favorite') === 'true';
+        console.log(`${index + 1}. ${courseName} ${isFavorite ? '(избранный)' : ''}`);
+        coursesRow.appendChild(column);
+    });
+    
+    console.log('Курсы пересортированы: избранные первыми');
+}
+
+// Функция инициализации статуса избранного для всех курсов
+function initializeFavoriteButtons() {
+    console.log('Инициализация кнопок избранного...');
+    
+    const favoriteButtons = document.querySelectorAll('.favorite-btn');
+    let hasFavorites = false;
+    
+    favoriteButtons.forEach(button => {
+        const courseId = button.getAttribute('data-course-id');
+        const isFavorite = loadFavoriteStatus(courseId);
+        
+        button.setAttribute('data-is-favorite', isFavorite.toString());
+        
+        if (isFavorite) {
+            button.classList.add('favorite');
+            button.title = 'Убрать из избранного';
+            hasFavorites = true;
+        } else {
+            button.classList.remove('favorite');
+            button.title = 'Добавить в избранное';
+        }
+    });
+    
+    console.log('Кнопки избранного инициализированы');
+    
+    // Если есть избранные курсы, возвращаем true для последующей пересортировки
+    return hasFavorites;
+}
+
+// Функция parseCoursesFromHTML удалена - больше не используется
+
+// Функция выполнения мгновенного поиска - теперь фильтруем основные курсы
+function performLiveSearch(searchTerm) {
+    console.log('Фильтруем курсы по запросу:', searchTerm);
+    
+    // Получаем все карточки курсов на странице
+    const courseCards = document.querySelectorAll('.course-card');
+    console.log('Найдено карточек курсов:', courseCards.length);
+    
+    if (courseCards.length === 0) {
+        console.log('Карточки курсов не найдены, пробуем альтернативный селектор...');
+        // Попробуем альтернативный селектор
+        const alternativeCards = document.querySelectorAll('[data-course-id]');
+        console.log('Альтернативный селектор нашел:', alternativeCards.length, 'элементов');
+        
+        if (alternativeCards.length > 0) {
+            filterCoursesByAlternativeSelector(alternativeCards, searchTerm);
+            return;
+        }
+    }
+    
+    let visibleCount = 0;
+    
+    courseCards.forEach((card, index) => {
+        // Ищем название курса в разных возможных местах
+        const courseName = card.querySelector('.card-title')?.textContent?.toLowerCase() || 
+                          card.querySelector('h5')?.textContent?.toLowerCase() ||
+                          card.querySelector('h6')?.textContent?.toLowerCase() || '';
+        
+        // Ищем описание курса
+        const courseDescription = card.querySelector('.course-description')?.textContent?.toLowerCase() ||
+                                 card.querySelector('.card-text')?.textContent?.toLowerCase() || '';
+        
+        const searchLower = searchTerm.toLowerCase();
+        
+        console.log(`Курс ${index + 1}:`, {
+            name: courseName,
+            description: courseDescription,
+            searchTerm: searchLower,
+            matches: courseName.includes(searchLower) || courseDescription.includes(searchLower)
+        });
+        
+        // Проверяем, подходит ли курс под поисковый запрос
+        const matches = courseName.includes(searchLower) || courseDescription.includes(searchLower);
+        
+        if (matches) {
+            // Показываем курс и его колонку
+            card.classList.remove('hidden');
+            card.classList.add('visible');
+            
+            // Показываем родительскую колонку
+            const column = card.closest('.col-md-6, .col-lg-4, .col-xl-3');
+            if (column) {
+                column.style.display = 'block';
+            }
+            
+            visibleCount++;
+            console.log(`Курс "${courseName}" показан`);
+        } else {
+            // Скрываем курс и его колонку
+            card.classList.remove('visible');
+            card.classList.add('hidden');
+            
+            // Скрываем родительскую колонку
+            const column = card.closest('.col-md-6, .col-lg-4, .col-xl-3');
+            if (column) {
+                column.style.display = 'none';
+            }
+            
+            console.log(`Курс "${courseName}" скрыт`);
+        }
+    });
+    
+    console.log(`Показано курсов: ${visibleCount} из ${courseCards.length}`);
+    
+    // Показываем сообщение, если ничего не найдено
+    showNoResultsMessage(visibleCount === 0, searchTerm);
+    
+    // Дополнительная проверка - выводим все найденные курсы
+    console.log('=== ДЕТАЛЬНАЯ ИНФОРМАЦИЯ О КУРСАХ ===');
+    courseCards.forEach((card, index) => {
+        const name = card.querySelector('.card-title')?.textContent || 
+                    card.querySelector('h5')?.textContent ||
+                    card.querySelector('h6')?.textContent || 'Без названия';
+        const desc = card.querySelector('.course-description')?.textContent || 
+                    card.querySelector('.card-text')?.textContent || 'Без описания';
+        const display = card.style.display;
+        const visibility = card.style.visibility;
+        const opacity = card.style.opacity;
+        
+        console.log(`Курс ${index + 1}: "${name}" | display: ${display} | visibility: ${visibility} | opacity: ${opacity}`);
+    });
+}
+
+// Альтернативная функция фильтрации курсов
+function filterCoursesByAlternativeSelector(cards, searchTerm) {
+    console.log('Используем альтернативную фильтрацию для', cards.length, 'карточек');
+    
+    let visibleCount = 0;
+    const searchLower = searchTerm.toLowerCase();
+    
+    cards.forEach((card, index) => {
+        // Ищем название курса в разных возможных местах
+        const courseName = card.querySelector('.card-title')?.textContent?.toLowerCase() || 
+                          card.querySelector('h5')?.textContent?.toLowerCase() ||
+                          card.querySelector('h6')?.textContent?.toLowerCase() || '';
+        
+        // Ищем описание курса
+        const courseDescription = card.querySelector('.course-description')?.textContent?.toLowerCase() ||
+                                 card.querySelector('.card-text')?.textContent?.toLowerCase() || '';
+        
+        console.log(`Альтернативный курс ${index + 1}:`, {
+            name: courseName,
+            description: courseDescription,
+            searchTerm: searchLower,
+            matches: courseName.includes(searchLower) || courseDescription.includes(searchLower)
+        });
+        
+        const matches = courseName.includes(searchLower) || courseDescription.includes(searchLower);
+        
+        if (matches) {
+            card.classList.remove('hidden');
+            card.classList.add('visible');
+            
+            // Показываем родительскую колонку
+            const column = card.closest('.col-md-6, .col-lg-4, .col-xl-3');
+            if (column) {
+                column.style.display = 'block';
+            }
+            
+            visibleCount++;
+        } else {
+            card.classList.remove('visible');
+            card.classList.add('hidden');
+            
+            // Скрываем родительскую колонку
+            const column = card.closest('.col-md-6, .col-lg-4, .col-xl-3');
+            if (column) {
+                column.style.display = 'none';
+            }
+        }
+    });
+    
+    console.log(`Альтернативная фильтрация: показано ${visibleCount} из ${cards.length}`);
+    showNoResultsMessage(visibleCount === 0, searchTerm);
+}
+
+// Функция показа сообщения "ничего не найдено"
+function showNoResultsMessage(noResults, searchTerm) {
+    const coursesContainer = document.getElementById('coursesContainer');
+    
+    if (noResults) {
+        // Создаем сообщение о том, что ничего не найдено
+        const noResultsHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <p class="text-muted">По запросу "${searchTerm}" ничего не найдено</p>
+                <small>Попробуйте изменить поисковый запрос</small>
+            </div>
+        `;
+        
+        // Добавляем сообщение в контейнер курсов
+        coursesContainer.innerHTML = noResultsHTML;
+    }
+}
+
+// Функция отображения результатов мгновенного поиска
+// Функция displayLiveSearchResults удалена - больше не используется
+
+
+
+// Функция addSearchResultClickHandlers удалена - больше не используется
+
+// Функция прокрутки к курсу
+function scrollToCourse(courseId) {
+    const courseElement = document.querySelector(`[data-course-id="${courseId}"]`);
+    if (courseElement) {
+        courseElement.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+        });
+        
+        // Добавляем подсветку
+        courseElement.style.boxShadow = '0 0 20px rgba(13, 110, 253, 0.5)';
+        setTimeout(() => {
+            courseElement.style.boxShadow = '';
+        }, 2000);
+    }
+}
+
+// Функции showSearchError и retrySearch удалены - больше не используются
+
+// Все функции для результатов поиска удалены - больше не используются
+
+// Функция настройки обработчиков фильтров - упрощена
+function setupFilterHandlers() {
+    // Кнопки убраны, фильтры работают автоматически
+    console.log('Фильтры настроены для автоматической работы');
+}
+
+// Функции applyFilters и resetFilters удалены - больше не используются
+
+// Функция показа индикатора загрузки страницы
+function showPageLoading() {
+    const container = document.querySelector('.container');
+    if (container) {
+        const loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'pageLoadingOverlay';
+        loadingOverlay.className = 'position-fixed w-100 h-100 d-flex align-items-center justify-content-center';
+        loadingOverlay.style.cssText = 'top: 0; left: 0; background: rgba(255, 255, 255, 0.8); z-index: 9999;';
+        loadingOverlay.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary mb-2" role="status">
+                    <span class="visually-hidden">Загрузка...</span>
+                </div>
+                <p class="text-primary mb-0">Применение фильтров...</p>
+            </div>
+        `;
+        document.body.appendChild(loadingOverlay);
+    }
+}
+
+// Функция скрытия индикатора загрузки страницы
+function hidePageLoading() {
+    const loadingOverlay = document.getElementById('pageLoadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.remove();
+    }
+}
+</script>
+
 {% endblock %}

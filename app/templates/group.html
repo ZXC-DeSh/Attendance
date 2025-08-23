@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Заголовок страницы группы -->
+    <div class="text-center mb-4">
+        <h1 class="display-4 text-primary">
+            <i class="fas fa-users me-3"></i>Группа
+        </h1>
+        <p class="lead text-muted">Информация о группе и посещаемости</p>
+    </div>
+
+    <div class="row">
+        <!-- Основная информация о группе -->
+        <div class="col-lg-8">
+            <!-- Курсы группы -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-book me-2"></i>Курсы группы
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if group_data.courses %}
+                        <div class="row">
+                            {% for course in group_data.courses %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-0 shadow-sm">
+                                        <div class="card-body text-center">
+                                            <div class="mb-3">
+                                                <i class="fas fa-book fa-2x text-primary"></i>
+                                            </div>
+                                            <h6 class="card-title text-primary">{{ course.name }}</h6>
+                                            {% if course.description %}
+                                                <p class="card-text text-muted small">{{ course.description }}</p>
+                                            {% endif %}
+                                            
+                                            {% if group_data.role == 'teacher' %}
+                                                <a href="{{ url_for('mark_attendance') }}?course_id={{ course.id }}" 
+                                                   class="btn btn-sm btn-outline-primary">
+                                                    <i class="fas fa-check me-1"></i>Отметить посещаемость
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-book fa-2x mb-3"></i><br>
+                            Курсы не найдены
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Список студентов -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user-graduate me-2"></i>Студенты группы
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if group_data.students %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Студент</th>
+                                        <th>Курсы</th>
+                                        <th>Посещаемость</th>
+                                        <th>Процент</th>
+                                        {% if group_data.role == 'teacher' %}
+                                            <th>Действия</th>
+                                        {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for student in group_data.students %}
+                                        <tr>
+                                            <td>
+                                                <div class="d-flex align-items-center">
+                                                    <img src="{{ student.avatar(32) }}" alt="Аватар" 
+                                                         class="rounded-circle me-2" style="width: 32px; height: 32px;">
+                                                    <div>
+                                                        <strong>{{ student.username }}</strong>
+                                                        <br>
+                                                        <small class="text-muted">{{ student.email }}</small>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% set student_courses = [] %}
+                                                {% for course in group_data.courses %}
+                                                    {% if student in course.students %}
+                                                        {% set _ = student_courses.append(course.name) %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                                <small class="text-muted">
+                                                    {{ student_courses|join(', ') }}
+                                                </small>
+                                            </td>
+                                            <td>
+                                                {% set stats = attendance_stats.get(student.id, {}) %}
+                                                <div class="d-flex flex-column">
+                                                    <span class="badge bg-success mb-1">
+                                                        <i class="fas fa-check me-1"></i>{{ stats.get('present', 0) }}
+                                                    </span>
+                                                    <span class="badge bg-danger mb-1">
+                                                        <i class="fas fa-times me-1"></i>{{ stats.get('absent', 0) }}
+                                                    </span>
+                                                    <span class="badge bg-warning">
+                                                        <i class="fas fa-clock me-1"></i>{{ stats.get('late', 0) }}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                {% set stats = attendance_stats.get(student.id, {}) %}
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-success" 
+                                                         style="width: {{ stats.get('percentage', 0) }}%">
+                                                        {{ stats.get('percentage', 0) }}%
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            {% if group_data.role == 'teacher' %}
+                                                <td>
+                                                    <a href="{{ url_for('mark_attendance') }}?student_id={{ student.id }}" 
+                                                       class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-check me-1"></i>Отметить
+                                                    </a>
+                                                </td>
+                                            {% endif %}
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-user-graduate fa-2x mb-3"></i><br>
+                            Студенты не найдены
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Боковая панель со статистикой -->
+        <div class="col-lg-4">
+            <!-- Общая статистика группы -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>Статистика группы
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <div class="border-end">
+                                <h4 class="text-primary mb-1">{{ group_data.students|length }}</h4>
+                                <small class="text-muted">Студентов</small>
+                            </div>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success mb-1">{{ group_data.courses|length }}</h4>
+                            <small class="text-muted">Курсов</small>
+                        </div>
+                    </div>
+                    
+                    {% if group_data.students %}
+                        {% set total_present = 0 %}
+                        {% set total_absent = 0 %}
+                        {% set total_late = 0 %}
+                        {% set total_records = 0 %}
+                        
+                        {% for student in group_data.students %}
+                            {% set stats = attendance_stats.get(student.id, {}) %}
+                            {% set total_present = total_present + stats.get('present', 0) %}
+                            {% set total_absent = total_absent + stats.get('absent', 0) %}
+                            {% set total_late = total_late + stats.get('late', 0) %}
+                            {% set total_records = total_records + stats.get('total', 0) %}
+                        {% endfor %}
+                        
+                        <hr>
+                        <div class="text-center">
+                            <h6 class="text-muted mb-3">Общая посещаемость</h6>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Присутствует:</span>
+                                <strong class="text-success">{{ total_present }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Отсутствует:</span>
+                                <strong class="text-danger">{{ total_absent }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Опоздал:</span>
+                                <strong class="text-warning">{{ total_late }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>Всего:</span>
+                                <strong>{{ total_records }}</strong>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Быстрые действия -->
+            {% if group_data.role == 'teacher' %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Быстрые действия
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('mark_attendance') }}" class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-check-circle me-2"></i>Отметить посещаемость
+                    </a>
+                    <a href="{{ url_for('assign_to_course') }}" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-user-plus me-2"></i>Добавить студента
+                    </a>
+                    <a href="{{ url_for('create_course') }}" class="btn btn-info w-100">
+                        <i class="fas fa-plus me-2"></i>Создать курс
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

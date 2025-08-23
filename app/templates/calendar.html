@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Заголовок календаря -->
+    <div class="text-center mb-4">
+        <h1 class="display-4 text-primary">
+            <i class="fas fa-calendar me-3"></i>Календарь
+        </h1>
+        <p class="lead text-muted">Расписание и управление посещаемостью</p>
+    </div>
+
+    <!-- Навигация по месяцам -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{{ url_for('calendar', year=year-1 if month == 1 else year, month=12 if month == 1 else month-1) }}" 
+                           class="btn btn-outline-primary">
+                            <i class="fas fa-chevron-left me-2"></i>Предыдущий месяц
+                        </a>
+                        
+                        <h3 class="mb-0 text-primary">
+                            {% set months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                                           'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'] %}
+                            {{ months[month-1] }} {{ year }}
+                        </h3>
+                        
+                        <a href="{{ url_for('calendar', year=year+1 if month == 12 else year, month=1 if month == 12 else month+1) }}" 
+                           class="btn btn-outline-primary">
+                            Следующий месяц<i class="fas fa-chevron-right ms-2"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Календарь -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>Календарь
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Дни недели -->
+                    <div class="row mb-2">
+                        {% set weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}
+                        {% for day in weekdays %}
+                            <div class="col text-center fw-bold text-primary">
+                                {{ day }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Календарная сетка -->
+                    <div class="calendar-grid">
+                        {% set first_day = datetime(year, month, 1) %}
+                        {% set start_weekday = first_day.weekday() %}
+                        
+                        <!-- Безопасное вычисление количества дней в месяце -->
+                        {% if month == 12 %}
+                            {% set next_month = 1 %}
+                            {% set next_year = year + 1 %}
+                        {% else %}
+                            {% set next_month = month + 1 %}
+                            {% set next_year = year %}
+                        {% endif %}
+                        
+                        {% set last_day_of_month = datetime(next_year, next_month, 1) - timedelta(days=1) %}
+                        {% set days_in_month = last_day_of_month.day %}
+                        
+                        {% for week in range(6) %}
+                            <div class="row mb-2">
+                                {% for day in range(7) %}
+                                    {% set day_number = week * 7 + day - start_weekday + 1 %}
+                                    {% set is_current_month = day_number > 0 and day_number <= days_in_month %}
+                                    {% set is_today = year == current_date.year and month == current_date.month and day_number == current_date.day %}
+                                    
+                                    <div class="col calendar-day {% if not is_current_month %}text-muted{% endif %} {% if is_today %}bg-primary text-white rounded{% endif %}">
+                                        <div class="calendar-day-content p-2 text-center position-relative">
+                                            {% if is_current_month %}
+                                                <div class="day-number {% if is_today %}fw-bold{% endif %}">
+                                                    {{ day_number }}
+                                                </div>
+                                                
+                                                <!-- Индикатор расписания -->
+                                                {% if schedule_data.courses %}
+                                                    <div class="schedule-indicator mt-1">
+                                                        <small class="badge bg-success">П</small>
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <!-- Индикатор праздника -->
+                                                {% if month == 1 and day_number == 1 %}
+                                                    <div class="holiday-indicator mt-1">
+                                                        <i class="fas fa-star text-warning" title="Новый год"></i>
+                                                    </div>
+                                                {% elif month == 5 and day_number == 9 %}
+                                                    <div class="holiday-indicator mt-1">
+                                                        <i class="fas fa-star text-warning" title="День Победы"></i>
+                                                    </div>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Боковая панель с расписанием -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock me-2"></i>Расписание
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if schedule_data.courses %}
+                        <div class="schedule-list">
+                            {% for course in schedule_data.courses %}
+                                <div class="schedule-item border-bottom pb-3 mb-3">
+                                    <h6 class="mb-1">{{ course.name }}</h6>
+                                    {% if course.description %}
+                                        <p class="text-muted small mb-2">{{ course.description }}</p>
+                                    {% endif %}
+                                    
+                                    {% if schedule_data.role == 'teacher' %}
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="badge bg-primary">Преподаватель</span>
+                                            <a href="{{ url_for('mark_attendance') }}?course_id={{ course.id }}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-check me-1"></i>Отметить
+                                            </a>
+                                        </div>
+                                    {% elif schedule_data.role == 'student' %}
+                                        <span class="badge bg-success">Студент</span>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-4">
+                            <i class="fas fa-calendar-times fa-2x mb-3"></i><br>
+                            Расписание пусто
+                        </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Быстрые действия -->
+            {% if schedule_data.role == 'teacher' %}
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-bolt me-2"></i>Быстрые действия
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <a href="{{ url_for('mark_attendance') }}" class="btn btn-primary w-100 mb-2">
+                        <i class="fas fa-check-circle me-2"></i>Отметить посещаемость
+                    </a>
+                    <a href="{{ url_for('assign_to_course') }}" class="btn btn-success w-100 mb-2">
+                        <i class="fas fa-user-plus me-2"></i>Назначить на курс
+                    </a>
+                    <a href="{{ url_for('create_course') }}" class="btn btn-warning w-100">
+                        <i class="fas fa-plus me-2"></i>Создать курс
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.calendar-grid {
+    font-size: 0.9rem;
+}
+
+.calendar-day {
+    min-height: 80px;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+    transform: scale(1.02);
+}
+
+.calendar-day-content {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.day-number {
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.schedule-indicator {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.holiday-indicator {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+}
+
+.schedule-item {
+    transition: all 0.3s ease;
+}
+
+.schedule-item:hover {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin: -0.75rem;
+}
+</style>
+{% endblock %}
