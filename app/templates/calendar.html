@@ -2,7 +2,6 @@
 
 {% block content %}
 <div class="container">
-    <!-- Заголовок календаря -->
     <div class="text-center mb-4">
         <h1 class="display-4 text-primary">
             <i class="fas fa-calendar me-3"></i>Календарь
@@ -10,7 +9,6 @@
         <p class="lead text-muted">Расписание и управление посещаемостью</p>
     </div>
 
-    <!-- Навигация по месяцам -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
@@ -38,7 +36,6 @@
     </div>
 
     <div class="row">
-        <!-- Календарь -->
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-primary text-white">
@@ -47,7 +44,6 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Дни недели -->
                     <div class="row mb-2">
                         {% set weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] %}
                         {% for day in weekdays %}
@@ -57,12 +53,10 @@
                         {% endfor %}
                     </div>
                     
-                    <!-- Календарная сетка -->
                     <div class="calendar-grid">
                         {% set first_day = datetime(year, month, 1) %}
                         {% set start_weekday = first_day.weekday() %}
                         
-                        <!-- Безопасное вычисление количества дней в месяце -->
                         {% if month == 12 %}
                             {% set next_month = 1 %}
                             {% set next_year = year + 1 %}
@@ -88,21 +82,15 @@
                                                     {{ day_number }}
                                                 </div>
                                                 
-                                                <!-- Индикатор расписания -->
                                                 {% if schedule_data.courses %}
                                                     <div class="schedule-indicator mt-1">
                                                         <small class="badge bg-success">П</small>
                                                     </div>
                                                 {% endif %}
                                                 
-                                                <!-- Индикатор праздника -->
                                                 {% if month == 1 and day_number == 1 %}
                                                     <div class="holiday-indicator mt-1">
-                                                        <i class="fas fa-star text-warning" title="Новый год"></i>
-                                                    </div>
-                                                {% elif month == 5 and day_number == 9 %}
-                                                    <div class="holiday-indicator mt-1">
-                                                        <i class="fas fa-star text-warning" title="День Победы"></i>
+                                                        <small class="badge bg-danger">НГ</small>
                                                     </div>
                                                 {% endif %}
                                             {% endif %}
@@ -115,24 +103,26 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Боковая панель с расписанием -->
+
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">
-                        <i class="fas fa-clock me-2"></i>Расписание
+                        <i class="fas fa-calendar-check me-2"></i>Расписание на {{ selected_date.strftime('%d.%m.%Y') }}
                     </h5>
                 </div>
                 <div class="card-body">
                     {% if schedule_data.courses %}
                         <div class="schedule-list">
                             {% for course in schedule_data.courses %}
-                                <div class="schedule-item border-bottom pb-3 mb-3">
-                                    <h6 class="mb-1">{{ course.name }}</h6>
-                                    {% if course.description %}
-                                        <p class="text-muted small mb-2">{{ course.description }}</p>
-                                    {% endif %}
+                                <div class="schedule-item p-3 border-bottom">
+                                    <h6 class="mb-2">{{ course.name }}</h6>
+                                    <p class="text-muted mb-2">
+                                        <i class="fas fa-clock me-1"></i>{{ course.time }}
+                                    </p>
+                                    <p class="text-muted mb-2">
+                                        <i class="fas fa-map-marker-alt me-1"></i>{{ course.room }}
+                                    </p>
                                     
                                     {% if schedule_data.role == 'teacher' %}
                                         <div class="d-flex justify-content-between align-items-center">
@@ -157,7 +147,6 @@
                 </div>
             </div>
             
-            <!-- Быстрые действия -->
             {% if schedule_data.role == 'teacher' %}
             <div class="card border-0 shadow-sm mt-4">
                 <div class="card-header bg-info text-white">
@@ -168,9 +157,6 @@
                 <div class="card-body">
                     <a href="{{ url_for('mark_attendance') }}" class="btn btn-primary w-100 mb-2">
                         <i class="fas fa-check-circle me-2"></i>Отметить посещаемость
-                    </a>
-                    <a href="{{ url_for('assign_to_course') }}" class="btn btn-success w-100 mb-2">
-                        <i class="fas fa-user-plus me-2"></i>Назначить на курс
                     </a>
                     <a href="{{ url_for('create_course') }}" class="btn btn-warning w-100">
                         <i class="fas fa-plus me-2"></i>Создать курс

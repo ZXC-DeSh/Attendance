@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="display-5 text-primary">
+                        <i class="fas fa-cog me-3"></i>Управление расписанием
+                    </h1>
+                    <p class="lead text-muted">Редактирование расписания для всех групп</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('admin_rooms') }}" class="btn btn-info me-2">
+                        <i class="fas fa-building me-2"></i>Аудитории
+                    </a>
+                    <a href="{{ url_for('admin_substitutions') }}" class="btn btn-warning me-2">
+                        <i class="fas fa-exchange-alt me-2"></i>Замены
+                    </a>
+                    <a href="{{ url_for('admin_panel') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Назад
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label for="groupFilter" class="form-label">Группа</label>
+                            <select class="form-select" id="groupFilter">
+                                <option value="">Все группы</option>
+                                {% for group in groups %}
+                                    <option value="{{ group.id }}">{{ group.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="courseFilter" class="form-label">Курс</label>
+                            <select class="form-select" id="courseFilter">
+                                <option value="">Все курсы</option>
+                                {% for course in courses %}
+                                    <option value="{{ course.id }}">{{ course.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="teacherFilter" class="form-label">Преподаватель</label>
+                            <select class="form-select" id="teacherFilter">
+                                <option value="">Все преподаватели</option>
+                                {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}">{{ teacher.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="roomFilter" class="form-label">Аудитория</label>
+                            <select class="form-select" id="roomFilter">
+                                <option value="">Все аудитории</option>
+                                {% for room in rooms %}
+                                    <option value="{{ room.id }}">{{ room.building }} {{ room.number }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-week me-2"></i>Расписание занятий
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 150px;">Группа</th>
+                                    <th style="width: 120px;">Время</th>
+                                    {% for day_num in range(1, 6) %}
+                                        <th class="text-center">
+                                            {% if day_num == 1 %}Пн{% elif day_num == 2 %}Вт{% elif day_num == 3 %}Ср{% elif day_num == 4 %}Чт{% else %}Пт{% endif %}
+                                        </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in groups %}
+                                    {% for slot in range(1, 5) %}
+                                        <tr>
+                                            {% if slot == 1 %}
+                                                <td rowspan="4" class="align-middle">
+                                                    <strong>{{ group.name }}</strong>
+                                                </td>
+                                            {% endif %}
+                                            <td class="text-muted">
+                                                <small>
+                                                    {% if slot == 1 %}8:30-10:00{% elif slot == 2 %}10:10-11:40{% elif slot == 3 %}12:10-13:40{% else %}14:10-15:40{% endif %}
+                                                </small>
+                                            </td>
+                                            {% for day in range(1, 6) %}
+                                                <td class="text-center">
+                                                    {% set schedule = schedules.get((group.id, day, slot)) %}
+                                                    {% if schedule %}
+                                                        <div class="schedule-item">
+                                                            <div class="course-name">{{ schedule.course.name }}</div>
+                                                            <div class="teacher-name">{{ schedule.teacher.username }}</div>
+                                                            <div class="room-info">{{ schedule.room.building }} {{ schedule.room.number }}</div>
+                                                            <div class="btn-group btn-group-sm mt-1">
+                                                                <button class="btn btn-outline-primary edit-schedule" 
+                                                                        data-schedule="{{ schedule.id }}"
+                                                                        data-group="{{ group.id }}"
+                                                                        data-day="{{ day }}"
+                                                                        data-slot="{{ slot }}"
+                                                                        data-course="{{ schedule.course.id }}"
+                                                                        data-teacher="{{ schedule.teacher.id }}"
+                                                                        data-room="{{ schedule.room.id }}">
+                                                                    <i class="fas fa-edit"></i>
+                                                                </button>
+                                                                <button class="btn btn-outline-danger delete-schedule"
+                                                                        data-schedule="{{ schedule.id }}">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    {% else %}
+                                                        <button class="btn btn-outline-success btn-sm add-schedule"
+                                                                data-group="{{ group.id }}"
+                                                                data-day="{{ day }}"
+                                                                data-slot="{{ slot }}">
+                                                            <i class="fas fa-plus"></i>
+                                                        </button>
+                                                    {% endif %}
+                                                </td>
+                                            {% endfor %}
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Редактировать расписание
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="scheduleForm">
+                    <input type="hidden" id="scheduleId" name="schedule_id">
+                    <input type="hidden" id="groupId" name="group_id">
+                    <input type="hidden" id="dayOfWeek" name="day_of_week">
+                    <input type="hidden" id="slotNumber" name="slot_number">
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="courseSelect" class="form-label">Курс *</label>
+                            <select class="form-select" id="courseSelect" name="course_id" required>
+                                <option value="">Выберите курс</option>
+                                {% for course in courses %}
+                                    <option value="{{ course.id }}">{{ course.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="teacherSelect" class="form-label">Преподаватель *</label>
+                            <select class="form-select" id="teacherSelect" name="teacher_id" required>
+                                <option value="">Выберите преподавателя</option>
+                                {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}">{{ teacher.username }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="roomSelect" class="form-label">Аудитория *</label>
+                        <select class="form-select" id="roomSelect" name="room_id" required>
+                            <option value="">Выберите аудиторию</option>
+                            {% for room in rooms %}
+                                <option value="{{ room.id }}">{{ room.building }} {{ room.number }} ({{ room.capacity }} мест)</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveSchedule">
+                    <i class="fas fa-save me-2"></i>Сохранить
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.schedule-item {
+    padding: 8px;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+
+.course-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 2px;
+}
+
+.teacher-name {
+    font-size: 0.8rem;
+    color: #6c757d;
+    margin-bottom: 2px;
+}
+
+.room-info {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 0.5rem;
+}
+
+.table th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const filters = ['groupFilter', 'courseFilter', 'teacherFilter', 'roomFilter'];
+    
+    filters.forEach(filterId => {
+        const filter = document.getElementById(filterId);
+        if (filter) {
+            filter.addEventListener('change', applyFilters);
+        }
+    });
+    
+    function applyFilters() {
+        const groupFilter = document.getElementById('groupFilter').value;
+        const courseFilter = document.getElementById('courseFilter').value;
+        const teacherFilter = document.getElementById('teacherFilter').value;
+        const roomFilter = document.getElementById('roomFilter').value;
+        
+        const rows = document.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            let showRow = true;
+            
+            if (groupFilter && !row.querySelector('td:first-child strong')?.textContent.includes(groupFilter)) {
+                showRow = false;
+            }
+            
+            if (courseFilter || teacherFilter || roomFilter) {
+                const scheduleItem = row.querySelector('.schedule-item');
+                if (scheduleItem) {
+                    if (courseFilter && !scheduleItem.querySelector('.course-name').textContent.includes(courseFilter)) {
+                        showRow = false;
+                    }
+                    if (teacherFilter && !scheduleItem.querySelector('.teacher-name').textContent.includes(teacherFilter)) {
+                        showRow = false;
+                    }
+                    if (roomFilter && !scheduleItem.querySelector('.room-info').textContent.includes(roomFilter)) {
+                        showRow = false;
+                    }
+                }
+            }
+            
+            row.style.display = showRow ? '' : 'none';
+        });
+    }
+    
+    document.querySelectorAll('.edit-schedule').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const data = this.dataset;
+            document.getElementById('scheduleId').value = data.schedule;
+            document.getElementById('groupId').value = data.group;
+            document.getElementById('dayOfWeek').value = data.day;
+            document.getElementById('slotNumber').value = data.slot;
+            document.getElementById('courseSelect').value = data.course;
+            document.getElementById('teacherSelect').value = data.teacher;
+            document.getElementById('roomSelect').value = data.room;
+            
+            const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+            modal.show();
+        });
+    });
+    
+    document.querySelectorAll('.add-schedule').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const data = this.dataset;
+            document.getElementById('scheduleId').value = '';
+            document.getElementById('groupId').value = data.group;
+            document.getElementById('dayOfWeek').value = data.day;
+            document.getElementById('slotNumber').value = data.slot;
+            document.getElementById('courseSelect').value = '';
+            document.getElementById('teacherSelect').value = '';
+            document.getElementById('roomSelect').value = '';
+            
+            const modal = new bootstrap.Modal(document.getElementById('scheduleModal'));
+            modal.show();
+        });
+    });
+    
+    document.getElementById('saveSchedule').addEventListener('click', function() {
+        const formData = {
+            schedule_id: document.getElementById('scheduleId').value,
+            group_id: document.getElementById('groupId').value,
+            course_id: document.getElementById('courseSelect').value,
+            teacher_id: document.getElementById('teacherSelect').value,
+            room_id: document.getElementById('roomSelect').value,
+            day_of_week: document.getElementById('dayOfWeek').value,
+            slot_number: document.getElementById('slotNumber').value
+        };
+        
+        fetch('/admin/schedule/edit', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении');
+        });
+    });
+    
+    document.querySelectorAll('.delete-schedule').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (confirm('Вы уверены, что хотите удалить эту запись из расписания?')) {
+                const scheduleId = this.dataset.schedule;
+                
+                fetch('/admin/schedule/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({schedule_id: scheduleId})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Ошибка: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Произошла ошибка при удалении');
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -2,7 +2,6 @@
 
 {% block content %}
     <style>
-        /* Отключаем прыгающую анимацию у карточек на странице профиля */
         .profile-page .card:hover {
             transform: none;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -12,7 +11,6 @@
         .profile-page .card:hover .fab {
             transform: none;
         }
-        /* Сохраняем анимацию только у карточек курсов */
         .profile-page .course-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -98,7 +96,7 @@
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-primary text-white">
                         <h3 class="h5 mb-0">
-                            <i class="fas fa-calendar-check me-2"></i>Записи о посещаемости
+                            <i class="fas fa-calendar-check me-2"></i>История посещаемости
                         </h3>
                     </div>
                     <div class="card-body">
@@ -107,10 +105,10 @@
                                 {% for record in attendance_records %}
                                     <div class="col-md-6 mb-3">
                                         <div class="card border-0 shadow-sm h-100">
-                                            <div class="card-body text-center">
+                                            <div class="card-body">
                                                 <h6 class="card-title text-primary">{{ record.course.name }}</h6>
-                                                <p class="card-text text-muted small">
-                                                    <i class="fas fa-clock me-1"></i>{{ record.date.strftime('%d.%m.%Y в %H:%M') }}
+                                                <p class="text-muted small mb-2">
+                                                    <i class="fas fa-calendar me-1"></i>{{ record.date.strftime('%d.%m.%Y') }}
                                                 </p>
                                                 <div class="mb-2">
                                                     {% if record.status == 'present' %}
@@ -154,7 +152,7 @@
                                     </a>
                                 {% endif %}
                                 {% if next_url %}
-                                    <a href="{{ next_url }}" class="btn btn-outline-primary btn-sm">
+                                    <a href="{{ prev_url }}" class="btn btn-outline-primary btn-sm">
                                         Следующие<i class="fas fa-chevron-right ms-1"></i>
                                     </a>
                                 {% endif %}
