@@ -24,7 +24,6 @@ class Message(db.Model):
     def __repr__(self) -> str:
         return f'<Message {self.body}>'
 
-# Таблица связей между учителями и курсами, которые они преподают
 teacher_course_association = sa.Table(
     'teacher_course_association',
     db.metadata,
@@ -32,12 +31,25 @@ teacher_course_association = sa.Table(
     sa.Column('course_id', sa.Integer, sa.ForeignKey('course.id'), primary_key=True)
 )
 
-# Таблица связей между учениками и курсами, на которые они записаны
 student_course_association = sa.Table(
     'student_course_association',
     db.metadata,
     sa.Column('student_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
     sa.Column('course_id', sa.Integer, sa.ForeignKey('course.id'), primary_key=True)
+)
+
+user_favorites_association = sa.Table(
+    'user_favorites',
+    db.metadata,
+    sa.Column('user_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
+    sa.Column('course_id', sa.Integer, sa.ForeignKey('course.id'), primary_key=True)
+)
+
+student_group_association = sa.Table(
+    'student_group_association',
+    db.metadata,
+    sa.Column('student_id', sa.Integer, sa.ForeignKey('user.id'), primary_key=True),
+    sa.Column('group_id', sa.Integer, sa.ForeignKey('group.id'), primary_key=True)
 )
 
 class User(UserMixin, db.Model):
@@ -49,7 +61,6 @@ class User(UserMixin, db.Model):
     about_me: so.Mapped[Optional[str]] = so.mapped_column(sa.String(140))
     last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
     
-    # Связи
     sent_messages: so.Mapped[List['Message']] = so.relationship(
         'Message', 
         foreign_keys='Message.sender_id',
@@ -73,12 +84,24 @@ class User(UserMixin, db.Model):
         collection_class=list,
         lazy='joined'
     )
+    
+    favorite_courses: so.Mapped[List['Course']] = so.relationship(
+        secondary=user_favorites_association,
+        back_populates='favorited_by',
+        collection_class=list
+    )
+    
+    group: so.Mapped[Optional['Group']] = so.relationship(
+        secondary=student_group_association,
+        back_populates='students',
+        uselist=False
+    )
+    
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
         back_populates='student',
         cascade="all, delete-orphan"
     )
     
-    # Связь с новостями (для администраторов)
     news_posts: so.Mapped[List['News']] = so.relationship(
         back_populates='author',
         cascade="all, delete-orphan"
@@ -97,7 +120,6 @@ class User(UserMixin, db.Model):
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
 
-    # Методы для проверки ролей
     def is_admin(self) -> bool:
         return self.role == 'admin'
     
@@ -107,7 +129,6 @@ class User(UserMixin, db.Model):
     def is_student(self) -> bool:
         return self.role == 'student'
 
-        # Методы для управления курсами (для учителей)
     def add_teaching_course(self, course: 'Course') -> None:
         if self.role != 'teacher':
             raise ValueError("Only teachers can be assigned to teaching courses")
@@ -118,7 +139,6 @@ class User(UserMixin, db.Model):
         if course in self.teaching_courses:
             self.teaching_courses.remove(course)
 
-    # Методы для управления курсами (для студентов)
     def enroll_in_course(self, course: 'Course') -> None:
         if self.role != 'student':
             raise ValueError("Only students can enroll in courses")
@@ -128,6 +148,17 @@ class User(UserMixin, db.Model):
     def unenroll_from_course(self, course: 'Course') -> None:
         if course in self.enrolled_courses:
             self.enrolled_courses.remove(course)
+
+    def add_favorite_course(self, course: 'Course') -> None:
+        if course not in self.favorite_courses:
+            self.favorite_courses.append(course)
+
+    def remove_favorite_course(self, course: 'Course') -> None:
+        if course in self.favorite_courses:
+            self.favorite_courses.remove(course)
+
+    def is_course_favorite(self, course: 'Course') -> bool:
+        return course in self.favorite_courses
 
     def get_reset_password_token(self, expires_in=600):
         return jwt.encode(
@@ -143,13 +174,37 @@ class User(UserMixin, db.Model):
             return
         return db.session.get(User, id)
 
+class Group(db.Model):
+    id: so.Mapped[int] = so.mapped_column(primary_key=True)
+    name: so.Mapped[str] = so.mapped_column(sa.String(20), unique=True, index=True)
+    specialty: so.Mapped[str] = so.mapped_column(sa.String(50), nullable=False)
+    course_year: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False)
+    group_number: so.Mapped[int] = so.mapped_column(sa.Integer, nullable=False)
+    max_students: so.Mapped[int] = so.mapped_column(sa.Integer, default=25)
+    created_at: so.Mapped[datetime] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
+    
+    students: so.Mapped[List['User']] = so.relationship(
+        secondary=student_group_association,
+        back_populates='group',
+        collection_class=list
+    )
+    
+    def __repr__(self) -> str:
+        return f'<Group {self.name}>'
+    
+    @property
+    def current_students_count(self) -> int:
+        return len(self.students)
+    
+    @property
+    def is_full(self) -> bool:
+        return self.current_students_count >= self.max_students
+
 class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     name: so.Mapped[str] = so.mapped_column(sa.String(100), unique=True, index=True)
     description: so.Mapped[Optional[str]] = so.mapped_column(sa.String(256))
-    is_favorite: so.Mapped[bool] = so.mapped_column(default=False)
 
-    # Связи
     teachers: so.Mapped[List['User']] = so.relationship(
         secondary=teacher_course_association,
         back_populates='teaching_courses',
@@ -161,6 +216,12 @@ class Course(db.Model):
         back_populates='enrolled_courses',
         collection_class=list,
         lazy='joined'
+    )
+    
+    favorited_by: so.Mapped[List['User']] = so.relationship(
+        secondary=user_favorites_association,
+        back_populates='favorite_courses',
+        collection_class=list
     )
 
     attendance_records: so.WriteOnlyMapped['AttendanceRecord'] = so.relationship(
@@ -195,6 +256,54 @@ class News(db.Model):
     
     def __repr__(self) -> str:
         return f'<News {self.title} by {self.author.username}>'
+
+class Room(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    number = db.Column(db.String(20), nullable=False, unique=True)
+    capacity = db.Column(db.Integer, nullable=False)
+    building = db.Column(db.String(50), nullable=False)
+    room_type = db.Column(db.String(50), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Room {self.number}>'
+
+class Schedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)
+    slot_number = db.Column(db.Integer, nullable=False)
+    week_type = db.Column(db.String(10), default='all')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    group = db.relationship('Group', backref='schedules')
+    course = db.relationship('Course', backref='schedules')
+    teacher = db.relationship('User', backref='teaching_schedules')
+    room = db.relationship('Room', backref='schedules')
+
+    def __repr__(self):
+        return f'<Schedule {self.group.name} {self.course.name} {self.day_of_week}:{self.slot_number}>'
+
+class TeacherSubstitution(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    original_schedule_id = db.Column(db.Integer, db.ForeignKey('schedule.id'), nullable=False)
+    substitute_teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    reason = db.Column(db.String(200))
+    is_confirmed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    original_schedule = db.relationship('Schedule', backref='substitutions')
+    substitute_teacher = db.relationship('User', backref='substitutions')
+
+    def __repr__(self):
+        return f'<TeacherSubstitution {self.original_schedule} -> {self.substitute_teacher.username}>'
 
 @login.user_loader
 def load_user(id: int) -> Optional[User]:

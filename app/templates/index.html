@@ -2,7 +2,6 @@
 
 {% block content %}
     <style>
-        /* Отключаем ховер-анимации на главной для всех карточек, кроме курсов */
         .home-page .card:hover {
             transform: none;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
@@ -12,7 +11,6 @@
         .home-page .card:hover .fab {
             transform: none;
         }
-        /* Возвращаем ховер-анимации только для карточек курсов */
         .home-page .course-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -50,7 +48,6 @@
     </style>
     
     <div class="home-page">
-        <!-- Заголовок с иконкой сайта -->
         <div class="text-center mb-4">
             <div class="d-flex justify-content-center align-items-center mb-3">
                 <a href="#news" class="text-decoration-none me-3" title="Новостная лента">
@@ -64,7 +61,6 @@
         </div>
 
         <div class="row">
-            <!-- Основной контент -->
             <div class="col-lg-8">
                 {% if current_user.role == 'student' %}
                     <div class="card border-0 shadow-sm mb-4">
@@ -100,47 +96,26 @@
                                                             <span class="badge bg-warning fs-6">
                                                                 <i class="fas fa-clock me-1"></i>Опоздал
                                                             </span>
-                                                        {% else %}
-                                                            <span class="badge bg-secondary fs-6">{{ record.status }}</span>
                                                         {% endif %}
                                                     </div>
-                                                    {% if record.notes %}
-                                                        <p class="card-text small text-muted">
-                                                            <i class="fas fa-sticky-note me-1"></i>{{ record.notes }}
-                                                        </p>
-                                                    {% endif %}
                                                 </div>
                                             </div>
                                         </div>
                                     {% endfor %}
                                 </div>
-                                
-                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                    {% if prev_url %}
-                                        <a href="{{ prev_url }}" class="btn btn-outline-primary">
-                                            <i class="fas fa-chevron-left me-1"></i>Предыдущие записи
-                                        </a>
-                                    {% endif %}
-                                    {% if next_url %}
-                                        <a href="{{ next_url }}" class="btn btn-outline-primary">
-                                            Следующие записи<i class="fas fa-chevron-right ms-1"></i>
-                                        </a>
-                                    {% endif %}
-                                </div>
                             {% else %}
                                 <div class="text-center py-5">
-                                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                                    <i class="fas fa-calendar-check fa-3x text-muted mb-3"></i>
                                     <p class="text-muted">У вас пока нет записей о посещаемости.</p>
                                 </div>
                             {% endif %}
                         </div>
                     </div>
-                    
                 {% elif current_user.role == 'teacher' %}
                     <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-header bg-primary text-white">
+                        <div class="card-header bg-info text-white">
                             <h2 class="h4 mb-0">
-                                <i class="fas fa-chalkboard-teacher me-2"></i>Курсы, которые вы преподаёте
+                                <i class="fas fa-chalkboard me-2"></i>Ваши курсы
                             </h2>
                         </div>
                         <div class="card-body">
@@ -189,9 +164,7 @@
                 {% endif %}
             </div>
             
-            <!-- Боковая панель с мини-календарем и новостями -->
             <div class="col-lg-4">
-                <!-- Мини-календарь -->
                 <div class="mini-calendar border-0 shadow-sm mb-4">
                     <div class="calendar-header text-center">
                         <h5 class="mb-0">
@@ -215,7 +188,6 @@
                     </div>
                 </div>
                 
-                <!-- Новостная лента -->
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-success text-white">
                         <h5 class="mb-0">

@@ -2,235 +2,226 @@
 
 {% block content %}
 <div class="container">
-    <!-- Заголовок страницы группы -->
     <div class="text-center mb-4">
         <h1 class="display-4 text-primary">
-            <i class="fas fa-users me-3"></i>Группа
+            <i class="fas fa-users me-3"></i>Группы
         </h1>
-        <p class="lead text-muted">Информация о группе и посещаемости</p>
+        <p class="lead text-muted">Просмотр и управление группами студентов</p>
     </div>
 
-    <div class="row">
-        <!-- Основная информация о группе -->
-        <div class="col-lg-8">
-            <!-- Курсы группы -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-book me-2"></i>Курсы группы
-                    </h5>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label for="groupSearch" class="form-label fw-semibold text-muted mb-2">
+                        <i class="fas fa-search me-2"></i>Поиск групп
+                    </label>
+                    <div class="search-container position-relative">
+                        <input type="text" class="form-control" id="groupSearch" placeholder="Введите название группы или специальность..." autocomplete="off">
+                    </div>
                 </div>
-                <div class="card-body">
-                    {% if group_data.courses %}
-                        <div class="row">
-                            {% for course in group_data.courses %}
-                                <div class="col-md-6 mb-3">
-                                    <div class="card h-100 border-0 shadow-sm">
-                                        <div class="card-body text-center">
-                                            <div class="mb-3">
-                                                <i class="fas fa-book fa-2x text-primary"></i>
-                                            </div>
-                                            <h6 class="card-title text-primary">{{ course.name }}</h6>
-                                            {% if course.description %}
-                                                <p class="card-text text-muted small">{{ course.description }}</p>
-                                            {% endif %}
-                                            
-                                            {% if group_data.role == 'teacher' %}
-                                                <a href="{{ url_for('mark_attendance') }}?course_id={{ course.id }}" 
-                                                   class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-check me-1"></i>Отметить посещаемость
-                                                </a>
-                                            {% endif %}
+                <div class="col-md-6">
+                    <div class="d-flex justify-content-end">
+                        <div class="text-muted">
+                            <small>
+                                <i class="fas fa-info-circle me-1"></i>
+                                Всего групп: <span class="badge bg-primary">{{ groups|length }}</span>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="groupsContainer">
+        {% if groups %}
+            <div class="row groups-container">
+                {% for group in groups %}
+                    <div class="col-md-6 col-lg-4 col-xl-3 mb-4" data-group-id="{{ group.id }}">
+                        <div class="card h-100 border-0 shadow-sm group-card position-relative">
+                            <div class="position-absolute top-0 start-0 m-2">
+                                {% if group.is_full %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Полная
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>Свободно
+                                    </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="card-body text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-users fa-3x text-primary"></i>
+                                </div>
+                                <h5 class="card-title text-primary">{{ group.name }}</h5>
+                                <p class="card-text text-muted">{{ group.specialty }}</p>
+                                
+                                <div class="group-info mb-3">
+                                    <div class="row text-center">
+                                        <div class="col-6">
+                                            <small class="text-muted">Курс</small>
+                                            <div class="fw-bold text-primary">{{ group.course_year }}</div>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">Группа</small>
+                                            <div class="fw-bold text-success">{{ group.group_number }}</div>
                                         </div>
                                     </div>
                                 </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <p class="text-muted text-center py-4">
-                            <i class="fas fa-book fa-2x mb-3"></i><br>
-                            Курсы не найдены
-                        </p>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- Список студентов -->
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-user-graduate me-2"></i>Студенты группы
-                    </h5>
-                </div>
-                <div class="card-body">
-                    {% if group_data.students %}
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Студент</th>
-                                        <th>Курсы</th>
-                                        <th>Посещаемость</th>
-                                        <th>Процент</th>
-                                        {% if group_data.role == 'teacher' %}
-                                            <th>Действия</th>
-                                        {% endif %}
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for student in group_data.students %}
-                                        <tr>
-                                            <td>
-                                                <div class="d-flex align-items-center">
-                                                    <img src="{{ student.avatar(32) }}" alt="Аватар" 
-                                                         class="rounded-circle me-2" style="width: 32px; height: 32px;">
-                                                    <div>
-                                                        <strong>{{ student.username }}</strong>
-                                                        <br>
-                                                        <small class="text-muted">{{ student.email }}</small>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {% set student_courses = [] %}
-                                                {% for course in group_data.courses %}
-                                                    {% if student in course.students %}
-                                                        {% set _ = student_courses.append(course.name) %}
-                                                    {% endif %}
-                                                {% endfor %}
-                                                <small class="text-muted">
-                                                    {{ student_courses|join(', ') }}
-                                                </small>
-                                            </td>
-                                            <td>
-                                                {% set stats = attendance_stats.get(student.id, {}) %}
-                                                <div class="d-flex flex-column">
-                                                    <span class="badge bg-success mb-1">
-                                                        <i class="fas fa-check me-1"></i>{{ stats.get('present', 0) }}
-                                                    </span>
-                                                    <span class="badge bg-danger mb-1">
-                                                        <i class="fas fa-times me-1"></i>{{ stats.get('absent', 0) }}
-                                                    </span>
-                                                    <span class="badge bg-warning">
-                                                        <i class="fas fa-clock me-1"></i>{{ stats.get('late', 0) }}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                {% set stats = attendance_stats.get(student.id, {}) %}
-                                                <div class="progress" style="height: 20px;">
-                                                    <div class="progress-bar bg-success" 
-                                                         style="width: {{ stats.get('percentage', 0) }}%">
-                                                        {{ stats.get('percentage', 0) }}%
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            {% if group_data.role == 'teacher' %}
-                                                <td>
-                                                    <a href="{{ url_for('mark_attendance') }}?student_id={{ student.id }}" 
-                                                       class="btn btn-sm btn-outline-primary">
-                                                        <i class="fas fa-check me-1"></i>Отметить
-                                                    </a>
-                                                </td>
-                                            {% endif %}
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <p class="text-muted text-center py-4">
-                            <i class="fas fa-user-graduate fa-2x mb-3"></i><br>
-                            Студенты не найдены
-                        </p>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        
-        <!-- Боковая панель со статистикой -->
-        <div class="col-lg-4">
-            <!-- Общая статистика группы -->
-            <div class="card border-0 shadow-sm mb-4">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-chart-bar me-2"></i>Статистика группы
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="row text-center">
-                        <div class="col-6 mb-3">
-                            <div class="border-end">
-                                <h4 class="text-primary mb-1">{{ group_data.students|length }}</h4>
-                                <small class="text-muted">Студентов</small>
+                                
+                                <div class="group-stats mb-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="text-muted">Студентов:</span>
+                                        <span class="fw-bold text-primary">{{ group.current_students_count }}/{{ group.max_students }}</span>
+                                    </div>
+                                    <div class="progress mt-1" style="height: 6px;">
+                                        <div class="progress-bar bg-primary" 
+                                             style="width: {{ (group.current_students_count / group.max_students * 100)|round(1) }}%">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('view_group', group_id=group.id) }}" 
+                                       class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-eye me-1"></i>Просмотреть группу
+                                    </a>
+                                    
+                                    {% if current_user.is_admin() %}
+                                        <a href="{{ url_for('edit_group', group_id=group.id) }}" 
+                                           class="btn btn-outline-warning btn-sm">
+                                            <i class="fas fa-edit me-1"></i>Редактировать
+                                        </a>
+                                        <a href="{{ url_for('delete_group', group_id=group.id) }}" 
+                                           class="btn btn-outline-danger btn-sm"
+                                           onclick="return confirm('Вы уверены, что хотите удалить эту группу?')">
+                                            <i class="fas fa-trash me-1"></i>Удалить
+                                        </a>
+                                    {% endif %}
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <h4 class="text-success mb-1">{{ group_data.courses|length }}</h4>
-                            <small class="text-muted">Курсов</small>
                         </div>
                     </div>
-                    
-                    {% if group_data.students %}
-                        {% set total_present = 0 %}
-                        {% set total_absent = 0 %}
-                        {% set total_late = 0 %}
-                        {% set total_records = 0 %}
-                        
-                        {% for student in group_data.students %}
-                            {% set stats = attendance_stats.get(student.id, {}) %}
-                            {% set total_present = total_present + stats.get('present', 0) %}
-                            {% set total_absent = total_absent + stats.get('absent', 0) %}
-                            {% set total_late = total_late + stats.get('late', 0) %}
-                            {% set total_records = total_records + stats.get('total', 0) %}
-                        {% endfor %}
-                        
-                        <hr>
-                        <div class="text-center">
-                            <h6 class="text-muted mb-3">Общая посещаемость</h6>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Присутствует:</span>
-                                <strong class="text-success">{{ total_present }}</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Отсутствует:</span>
-                                <strong class="text-danger">{{ total_absent }}</strong>
-                            </div>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span>Опоздал:</span>
-                                <strong class="text-warning">{{ total_late }}</strong>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <span>Всего:</span>
-                                <strong>{{ total_records }}</strong>
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
+                {% endfor %}
             </div>
             
-            <!-- Быстрые действия -->
-            {% if group_data.role == 'teacher' %}
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-warning text-white">
-                    <h5 class="mb-0">
-                        <i class="fas fa-bolt me-2"></i>Быстрые действия
-                    </h5>
+            {% if next_url or prev_url %}
+                <div class="d-flex justify-content-between align-items-center mt-4">
+                    {% if prev_url %}
+                        <a href="{{ prev_url }}" class="btn btn-outline-primary">
+                            <i class="fas fa-chevron-left me-1"></i>Предыдущие группы
+                        </a>
+                    {% endif %}
+                    {% if next_url %}
+                        <a href="{{ next_url }}" class="btn btn-outline-primary">
+                            Следующие группы<i class="fas fa-chevron-right ms-1"></i>
+                        </a>
+                    {% endif %}
                 </div>
-                <div class="card-body">
-                    <a href="{{ url_for('mark_attendance') }}" class="btn btn-primary w-100 mb-2">
-                        <i class="fas fa-check-circle me-2"></i>Отметить посещаемость
-                    </a>
-                    <a href="{{ url_for('assign_to_course') }}" class="btn btn-success w-100 mb-2">
-                        <i class="fas fa-user-plus me-2"></i>Добавить студента
-                    </a>
-                    <a href="{{ url_for('create_course') }}" class="btn btn-info w-100">
-                        <i class="fas fa-plus me-2"></i>Создать курс
-                    </a>
-                </div>
-            </div>
             {% endif %}
-        </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <p class="text-muted">Группы не найдены.</p>
+                {% if search %}
+                    <p class="text-muted">Попробуйте изменить параметры поиска.</p>
+                {% endif %}
+            </div>
+        {% endif %}
     </div>
 </div>
+
+<style>
+.group-card {
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.group-card:hover {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+
+.group-card .card-body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.group-card .card-body .d-grid {
+    margin-top: auto;
+}
+
+.group-info {
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.group-stats {
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.search-container {
+    position: relative;
+    z-index: 1000;
+}
+
+.search-container .form-control {
+    border: 1px solid #dee2e6;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    background: #fff;
+    box-shadow: none;
+    border-radius: 0.5rem;
+    height: 38px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-container .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+    outline: none;
+}
+
+@media (max-width: 768px) {
+    .group-card {
+        margin-bottom: 1rem;
+    }
+    
+    .search-container {
+        margin-bottom: 1rem;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('groupSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+            const groupCards = document.querySelectorAll('.group-card');
+            
+            groupCards.forEach(card => {
+                const groupName = card.querySelector('.card-title').textContent.toLowerCase();
+                const specialty = card.querySelector('.card-text').textContent.toLowerCase();
+                
+                if (groupName.includes(searchTerm) || specialty.includes(searchTerm)) {
+                    card.closest('.col-md-6, .col-lg-4, .col-xl-3').style.display = 'block';
+                } else {
+                    card.closest('.col-md-6, .col-lg-4, .col-xl-3').style.display = 'none';
+                }
+            });
+        });
+    }
+});
+</script>
+
 {% endblock %}

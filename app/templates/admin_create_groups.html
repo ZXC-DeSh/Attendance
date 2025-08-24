@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-users me-2"></i>Создать группы студентов
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-info-circle me-2"></i>Информация
+                        </h6>
+                        <p class="mb-0">
+                            Будет создано 10 групп по 25 студентов в каждой. 
+                            Существующие студенты будут автоматически распределены по группам.
+                        </p>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Группы программирования:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-circle text-success me-2"></i>ПКС-21 (2 курс, группа 1)</li>
+                                <li><i class="fas fa-circle text-success me-2"></i>ПКС-22 (2 курс, группа 2)</li>
+                                <li><i class="fas fa-circle text-success me-2"></i>ПКС-23 (2 курс, группа 3)</li>
+                                <li><i class="fas fa-circle text-success me-2"></i>ПКС-31 (3 курс, группа 1)</li>
+                                <li><i class="fas fa-circle text-success me-2"></i>ПКС-32 (3 курс, группа 2)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Другие специальности:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-circle text-info me-2"></i>ИС-21 (Информационные системы, 2 курс)</li>
+                                <li><i class="fas fa-circle text-info me-2"></i>ИС-22 (Информационные системы, 2 курс)</li>
+                                <li><i class="fas fa-circle text-info me-2"></i>ИС-31 (Информационные системы, 3 курс)</li>
+                                <li><i class="fas fa-circle text-warning me-2"></i>ВД-21 (Веб-разработка, 2 курс)</li>
+                                <li><i class="fas fa-circle text-warning me-2"></i>ВД-31 (Веб-разработка, 3 курс)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-magic me-2"></i>Создать группы и распределить студентов
+                            </button>
+                            <a href="{{ url_for('admin_panel') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Вернуться в админ-панель
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
