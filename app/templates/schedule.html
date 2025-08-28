@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container">
+    <!-- Заголовок -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <h1 class="display-5 text-primary">
-                        <i class="fas fa-calendar-alt me-3"></i>Расписание занятий
+                    <h1 class="display-6 text-primary mb-2">
+                        <i class="fas fa-calendar-alt me-2"></i>Расписание
                     </h1>
-                    <p class="lead text-muted">
+                    <p class="text-muted mb-0">
                         {% if view_type == 'student' %}
                             Расписание вашей группы
                         {% elif view_type == 'teacher' %}
@@ -21,195 +22,865 @@
                 </div>
                 <div>
                     {% if current_user.is_admin() %}
-                        <a href="{{ url_for('admin_schedule') }}" class="btn btn-primary me-2">
+                        <a href="{{ url_for('admin_schedule') }}" class="btn btn-primary">
                             <i class="fas fa-cog me-2"></i>Управление
                         </a>
                     {% endif %}
-                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-2"></i>Назад
-                    </a>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Панель навигации по неделям -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-center align-items-center">
+                <a href="{{ url_for('schedule', week=week_offset-1) }}" class="btn btn-outline-primary btn-sm me-2">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+                <span class="text-muted me-2">
+                    {{ week_range }}
+                </span>
+                <a href="{{ url_for('schedule', week=0) }}" class="btn btn-primary btn-sm me-2">
+                    <i class="fas fa-calendar-day"></i>
+                </a>
+                <a href="{{ url_for('schedule', week=week_offset+1) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Горизонтальная панель выбора дня -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group">
+                    {% for day_num in range(1, 8) %}
+                        <button type="button" 
+                                class="btn btn-outline-primary day-selector btn-sm {% if day_num == selected_day %}active{% endif %} {% if day_num > 5 %}weekend{% endif %}"
+                                data-day="{{ day_num }}">
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="fw-bold">{{ days_short[day_num] }}</span>
+                                <small class="text-muted">{{ week_dates[day_num] }}</small>
+                            </div>
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтр по специальностям -->
+    {% if specialties|length > 1 %}
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group">
+                    {% for specialty in specialties %}
+                        <button type="button" class="btn btn-outline-primary btn-sm specialty-filter" data-specialty="{{ specialty }}">
+                            {{ specialty }}
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Фильтр по курсам (показывается при выборе специальности) -->
+    <div class="row mb-3" id="course-filter" style="display: none;">
+        <div class="col-12">
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm course-filter active" data-course="all">
+                        <i class="fas fa-graduation-cap me-1"></i>Все курсы
+                    </button>
+                    <div id="course-buttons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Фильтр по группам (показывается при выборе курса) -->
+    <div class="row mb-3" id="group-filter" style="display: none;">
+        <div class="col-12">
+            <div class="d-flex justify-content-center">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm group-filter active" data-group="all">
+                        <i class="fas fa-users me-1"></i>Все группы
+                    </button>
+                    <div id="group-buttons"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Расписание на выбранный день -->
     <div class="row">
         <div class="col-12">
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-primary text-white">
                     <h5 class="mb-0">
-                        <i class="fas fa-calendar-week me-2"></i>
-                        Неделя с {{ start_of_week.strftime('%d.%m.%Y') }}
+                        <i class="fas fa-calendar-day me-2"></i>
+                        <span id="selected-day-name">{{ days_names[selected_day] }}</span>
                     </h5>
                 </div>
                 <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th style="width: 120px;">Время</th>
-                                    {% for day_num in range(1, 6) %}
-                                        <th class="text-center">{{ days_names[day_num] }}</th>
-                                    {% endfor %}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for slot_num in range(1, 5) %}
-                                    <tr>
-                                        <td class="text-muted fw-semibold" style="width: 120px;">
-                                            <small>{{ slots_time[slot_num] }}</small>
-                                        </td>
-                                        {% for day_num in range(1, 6) %}
-                                            <td class="text-center p-2">
-                                                {% set slot_schedules = week_schedule[day_num][slot_num] %}
-                                                {% if slot_schedules %}
-                                                    {% for schedule in slot_schedules %}
-                                                        <div class="schedule-item mb-2">
-                                                            {% if view_type == 'student' %}
-                                                                <div class="schedule-card student-view">
-                                                                    <div class="course-name fw-bold text-primary">
-                                                                        {{ schedule.course.name }}
-                                                                    </div>
-                                                                    <div class="teacher-name text-muted">
-                                                                        <i class="fas fa-user-tie me-1"></i>
-                                                                        {{ schedule.teacher.username }}
-                                                                    </div>
-                                                                    <div class="room-info text-success">
-                                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                                        {{ schedule.room.building }}, {{ schedule.room.number }}
-                                                                    </div>
-                                                                </div>
-                                                            {% elif view_type == 'teacher' %}
-                                                                <div class="schedule-card teacher-view">
-                                                                    <div class="course-name fw-bold text-primary">
-                                                                        {{ schedule.course.name }}
-                                                                    </div>
-                                                                    <div class="group-name text-info">
-                                                                        <i class="fas fa-users me-1"></i>
-                                                                        {{ schedule.group.name }}
-                                                                    </div>
-                                                                    <div class="room-info text-success">
-                                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                                        {{ schedule.room.building }}, {{ schedule.room.number }}
-                                                                    </div>
-                                                                </div>
-                                                            {% else %}
-                                                                <div class="schedule-card admin-view">
-                                                                    <div class="course-name fw-bold text-primary">
-                                                                        {{ schedule.course.name }}
-                                                                    </div>
-                                                                    <div class="teacher-name text-muted">
-                                                                        <i class="fas fa-user-tie me-1"></i>
-                                                                        {{ schedule.teacher.username }}
-                                                                    </div>
-                                                                    <div class="group-name text-info">
-                                                                        <i class="fas fa-users me-1"></i>
-                                                                        {{ schedule.group.name }}
-                                                                    </div>
-                                                                    <div class="room-info text-success">
-                                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                                        {{ schedule.room.building }}, {{ schedule.room.number }}
-                                                                    </div>
-                                                                </div>
-                                                            {% endif %}
-                                                        </div>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <div class="text-muted">
-                                                        <small>Нет занятий</small>
-                                                    </div>
-                                                {% endif %}
-                                            </td>
-                                        {% endfor %}
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {% if view_type == 'teacher' %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-warning text-dark">
-                        <h6 class="mb-0">
-                            <i class="fas fa-exchange-alt me-2"></i>Замены на этой неделе
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        <div class="text-center text-muted">
-                            <i class="fas fa-info-circle fa-2x mb-3"></i>
-                            <p>Здесь будут отображаться замены преподавателей на ваши пары</p>
+                    <div id="day-schedule">
+                        <div class="text-center py-5">
+                            <i class="fas fa-graduation-cap fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted mb-2">Выберите специальность</h5>
+                            <p class="text-muted mb-0">Для просмотра расписания выберите специальность в фильтре выше</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    {% endif %}
+    </div>
 </div>
 
 <style>
-.schedule-item {
-    margin-bottom: 0.5rem;
+/* Компактная панель навигации по неделям */
+.week-navigation {
+    padding: 0.5rem 0;
 }
 
-.schedule-card {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 0.375rem;
-    padding: 0.75rem;
+/* Фильтр по специальностям */
+.specialty-filter {
+    min-width: 60px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.375rem !important;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.specialty-filter:hover {
+    background-color: #d1ecf1;
+    border-color: #0d6efd;
+    color: #0c5460;
+}
+
+.specialty-filter.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* Фильтр по курсам */
+.course-filter {
+    min-width: 60px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.375rem !important;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.course-filter:hover {
+    background-color: #d1ecf1;
+    border-color: #0d6efd;
+    color: #0c5460;
+}
+
+.course-filter.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* Фильтр по группам */
+.group-filter {
+    min-width: 60px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.375rem !important;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.group-filter:hover {
+    background-color: #d1ecf1;
+    border-color: #0d6efd;
+    color: #0c5460;
+}
+
+.group-filter.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+/* Горизонтальная панель выбора дня */
+.day-selector {
+    min-width: 60px;
+    padding: 0.5rem 0.25rem;
+    border-radius: 0.375rem !important;
+    transition: all 0.3s ease;
+    font-size: 0.85rem;
+}
+
+.day-selector:hover {
+    background-color: #e7f3ff;
+    border-color: #0d6efd;
+    color: #0d6efd;
+}
+
+.day-selector:hover .text-muted {
+    color: #6c757d !important;
+}
+
+.day-selector.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: white;
+}
+
+.day-selector.active .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Стили для выходных */
+.day-selector.weekend {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.day-selector.weekend:hover {
+    background-color: #f8d7da;
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.day-selector.weekend:hover .text-muted {
+    color: #6c757d !important;
+}
+
+.day-selector.weekend.active {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.day-selector.weekend.active .text-muted {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Расписание на день */
+.schedule-row {
+    border-bottom: 1px solid #e9ecef;
     transition: all 0.2s ease;
 }
 
-.schedule-card:hover {
-    background: #e9ecef;
-    border-color: #adb5bd;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.schedule-row:last-child {
+    border-bottom: none;
 }
+
+.schedule-row.has-classes {
+    background-color: #f8f9fa;
+}
+
+.schedule-row.no-classes {
+    background-color: #ffffff;
+}
+
+.schedule-row:hover {
+    background-color: #e9ecef;
+}
+
+/* Временные слоты */
+.time-slot {
+    padding: 0.5rem 0.25rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 80px;
+}
+
+.slot-number {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #495057;
+    margin-bottom: 0.2rem;
+    line-height: 1.2;
+}
+
+.slot-time {
+    font-size: 0.7rem;
+    color: #6c757d;
+    font-weight: 500;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+/* Контент расписания */
+.schedule-content {
+    padding: 1.5rem;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+}
+
+.schedule-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.schedule-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Бейдж типа занятия */
+.lesson-type-badge {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+.lesson-type-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+
 
 .course-name {
-    font-size: 0.9rem;
-    margin-bottom: 0.25rem;
-}
-
-.teacher-name, .group-name, .room-info {
-    font-size: 0.8rem;
-    margin-bottom: 0.25rem;
-}
-
-.room-info {
+    color: #495057;
     font-weight: 600;
+    margin-bottom: 1rem;
 }
 
-@media (max-width: 768px) {
-    .schedule-card {
-        padding: 0.5rem;
-    }
-    
-    .course-name {
-        font-size: 0.8rem;
-    }
-    
-    .teacher-name, .group-name, .room-info {
-        font-size: 0.7rem;
-    }
+.schedule-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }
 
+.detail-item {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.detail-item i {
+    width: 16px;
+    color: #adb5bd;
+}
+
+/* Нет занятий */
+.no-classes {
+    text-align: center;
+    padding: 2rem;
+    color: #adb5bd;
+}
+
+/* Цветовые схемы для разных ролей */
 .student-view {
     border-left: 4px solid #0d6efd;
+}
+
+.student-view .course-name {
+    color: #0d6efd;
 }
 
 .teacher-view {
     border-left: 4px solid #198754;
 }
 
+.teacher-view .course-name {
+    color: #198754;
+}
+
 .admin-view {
     border-left: 4px solid #6f42c1;
 }
+
+.admin-view .course-name {
+    color: #6f42c1;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .day-selector {
+        min-width: 60px;
+        padding: 0.75rem 0.25rem;
+    }
+    
+    .day-selector span {
+        font-size: 0.8rem;
+    }
+    
+    .day-selector small {
+        font-size: 0.7rem;
+    }
+    
+    .time-slot {
+        padding: 1rem 0.5rem;
+    }
+    
+    .slot-number {
+        font-size: 1.2rem;
+    }
+    
+    .slot-time {
+        font-size: 0.75rem;
+    }
+    
+    .schedule-content {
+        padding: 1rem;
+    }
+    
+    .schedule-card {
+        padding: 1rem;
+    }
+    
+    .course-name {
+        font-size: 1rem;
+    }
+    
+    .detail-item {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .day-selector {
+        min-width: 50px;
+        padding: 0.4rem 0.2rem;
+        font-size: 0.8rem;
+    }
+    
+    .day-selector span {
+        font-size: 0.75rem;
+    }
+    
+    .day-selector small {
+        font-size: 0.65rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .btn-group {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .day-selector {
+        flex: 1;
+        min-width: calc(33.333% - 0.167rem);
+    }
+    
+    .week-navigation .d-flex {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .week-navigation .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    .specialty-filter {
+        min-width: 50px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    .course-filter {
+        min-width: 50px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    .group-filter {
+        min-width: 50px;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    .time-slot {
+        padding: 0.4rem 0.2rem;
+        min-height: 70px;
+    }
+    
+    .slot-number {
+        font-size: 1rem;
+    }
+    
+    .slot-time {
+        font-size: 0.65rem;
+    }
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const daySelectors = document.querySelectorAll('.day-selector');
+    const selectedDayName = document.getElementById('selected-day-name');
+    const daySchedule = document.getElementById('day-schedule');
+    const specialtyFilters = document.querySelectorAll('.specialty-filter');
+    const courseFilter = document.getElementById('course-filter');
+    const groupFilter = document.getElementById('group-filter');
+    const courseButtons = document.getElementById('course-buttons');
+    const groupButtons = document.getElementById('group-buttons');
+    
+    let currentSpecialty = 'all';
+    let currentCourse = 'all';
+    let currentGroup = 'all';
+    
+    // Данные о курсах и группах
+    const coursesBySpecialty = {{ courses_by_specialty | tojson }};
+    const groupsBySpecialty = {{ groups_by_specialty | tojson }};
+    
+    // Данные о времени слотов
+    const slotsTime = {
+        {% for slot_num in range(1, 5) %}
+        {{ slot_num }}: "{{ slots_time[slot_num] }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    
+    // Инициализация при загрузке страницы
+    if (currentSpecialty !== 'all') {
+        showCourseFilter(currentSpecialty);
+    }
+    
+    // Данные расписания (в реальном приложении это будет загружаться через AJAX)
+    const scheduleData = {
+        {% for day_num in range(1, 8) %}
+        {{ day_num }}: {
+            name: "{{ days_names[day_num] }}",
+            schedule: {
+                {% for slot_num in range(1, 5) %}
+                {{ slot_num }}: [
+                    {% set slot_schedules = week_schedule[day_num][slot_num] %}
+                    {% for schedule in slot_schedules %}
+                    {
+                        course: "{{ schedule.course.name }}",
+                        {% if view_type == 'student' %}
+                        teacher: "{{ schedule.teacher.username }}",
+                        {% elif view_type == 'teacher' %}
+                        group: "{{ schedule.group.name }}",
+                        {% else %}
+                        teacher: "{{ schedule.teacher.username }}",
+                        group: "{{ schedule.group.name }}",
+                        {% endif %}
+                        room: "{{ schedule.room.building }}, {{ schedule.room.number }}",
+                        specialty: "{{ schedule.group.specialty }}",
+                        course_year: {{ schedule.group.course_year }},
+                        group_number: {{ schedule.group.group_number }},
+                        lesson_type: "{{ schedule.lesson_type }}",
+                        lesson_type_name: "{{ schedule.lesson_type_name }}",
+                        lesson_type_icon: "{{ schedule.lesson_type_icon }}",
+                        lesson_type_color: "{{ schedule.lesson_type_color }}"
+                    }{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ]{% if not loop.last %},{% endif %}
+                {% endfor %}
+            }
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    };
+    
+    // Показываем сообщение о выборе специальности
+    showSelectSpecialtyMessage();
+    
+    daySelectors.forEach(selector => {
+        selector.addEventListener('click', function() {
+            const day = parseInt(this.dataset.day);
+            
+            // Обновляем активную кнопку
+            daySelectors.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Обновляем название дня
+            selectedDayName.textContent = scheduleData[day].name;
+            
+            // Обновляем расписание
+            updateSchedule(day);
+        });
+    });
+    
+    // Обработчики для фильтра специальностей
+    specialtyFilters.forEach(filter => {
+        filter.addEventListener('click', function() {
+            const specialty = this.dataset.specialty;
+            
+            // Обновляем активную кнопку
+            specialtyFilters.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            // Обновляем текущую специальность
+            currentSpecialty = specialty;
+            
+            // Сбрасываем фильтры курса и группы
+            currentCourse = 'all';
+            currentGroup = 'all';
+            
+            // Сбрасываем активные состояния кнопок курсов и групп
+            document.querySelectorAll('.course-filter').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.group-filter').forEach(btn => btn.classList.remove('active'));
+            
+            // Показываем фильтр курсов для выбранной специальности
+            showCourseFilter(specialty);
+            groupFilter.style.display = 'none';
+            
+            // Обновляем расписание с учетом фильтра
+            const activeDay = document.querySelector('.day-selector.active');
+            if (activeDay) {
+                const day = parseInt(activeDay.dataset.day);
+                updateSchedule(day);
+            }
+        });
+    });
+    
+    function showCourseFilter(specialty) {
+        const courses = coursesBySpecialty[specialty] || [];
+        courseButtons.innerHTML = '';
+        
+        // Убеждаемся, что кнопка "Все курсы" активна
+        document.querySelector('.course-filter[data-course="all"]').classList.add('active');
+        
+        courses.forEach(course => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-outline-primary btn-sm course-filter';
+            button.dataset.course = course;
+            button.textContent = `${course} курс`;
+            
+            button.addEventListener('click', function() {
+                // Обновляем активную кнопку
+                document.querySelectorAll('.course-filter').forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Обновляем текущий курс
+                currentCourse = course;
+                
+                // Сбрасываем фильтр группы
+                currentGroup = 'all';
+                
+                // Показываем фильтр групп
+                showGroupFilter(specialty, course);
+                
+                // Обновляем расписание
+                const activeDay = document.querySelector('.day-selector.active');
+                if (activeDay) {
+                    const day = parseInt(activeDay.dataset.day);
+                    updateSchedule(day);
+                }
+            });
+            
+            courseButtons.appendChild(button);
+        });
+        
+        courseFilter.style.display = 'block';
+    }
+    
+    function showGroupFilter(specialty, course) {
+        const groups = groupsBySpecialty[specialty]?.[course] || [];
+        groupButtons.innerHTML = '';
+        
+        // Убеждаемся, что кнопка "Все группы" активна
+        document.querySelector('.group-filter[data-group="all"]').classList.add('active');
+        
+        groups.forEach(group => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-outline-primary btn-sm group-filter';
+            button.dataset.group = group;
+            button.textContent = `Группа ${group}`;
+            
+            button.addEventListener('click', function() {
+                // Обновляем активную кнопку
+                document.querySelectorAll('.group-filter').forEach(btn => btn.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Обновляем текущую группу
+                currentGroup = group;
+                
+                // Обновляем расписание
+                const activeDay = document.querySelector('.day-selector.active');
+                if (activeDay) {
+                    const day = parseInt(activeDay.dataset.day);
+                    updateSchedule(day);
+                }
+            });
+            
+            groupButtons.appendChild(button);
+        });
+        
+        groupFilter.style.display = 'block';
+    }
+    
+    function updateSchedule(day) {
+        // Если специальность не выбрана, показываем сообщение
+        if (currentSpecialty === 'all') {
+            showSelectSpecialtyMessage();
+            return;
+        }
+        
+        const schedule = scheduleData[day].schedule;
+        let html = '';
+        
+        for (let slot = 1; slot <= 4; slot++) {
+            let classes = schedule[slot];
+            
+            // Фильтруем занятия по специальности
+            if (currentSpecialty !== 'all') {
+                classes = classes.filter(cls => {
+                    return cls.specialty === currentSpecialty;
+                });
+            }
+            
+            // Фильтруем занятия по курсу
+            if (currentCourse !== 'all') {
+                classes = classes.filter(cls => {
+                    return cls.course_year === currentCourse;
+                });
+            }
+            
+            // Фильтруем занятия по группе
+            if (currentGroup !== 'all') {
+                classes = classes.filter(cls => {
+                    return cls.group_number === currentGroup;
+                });
+            }
+            
+            const hasClasses = classes.length > 0;
+            
+            html += `
+                <div class="schedule-row ${hasClasses ? 'has-classes' : 'no-classes'}">
+                    <div class="row g-0">
+                        <div class="col-2 col-md-1">
+                            <div class="time-slot">
+                                <div class="slot-number">${slot}</div>
+                                <div class="slot-time">${slotsTime[slot]}</div>
+                            </div>
+                        </div>
+                        <div class="col-10 col-md-11">
+                            <div class="schedule-content">
+                                ${hasClasses ? generateClassesHTML(classes) : generateNoClassesHTML()}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        daySchedule.innerHTML = html;
+    }
+    
+    // Обработчики для кнопок "Все курсы" и "Все группы"
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('course-filter') && e.target.dataset.course === 'all') {
+            // Обновляем активную кнопку
+            document.querySelectorAll('.course-filter').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Сбрасываем фильтр курса
+            currentCourse = 'all';
+            currentGroup = 'all';
+            groupFilter.style.display = 'none';
+            
+            // Обновляем расписание
+            const activeDay = document.querySelector('.day-selector.active');
+            if (activeDay) {
+                const day = parseInt(activeDay.dataset.day);
+                updateSchedule(day);
+            }
+        }
+        
+        if (e.target.classList.contains('group-filter') && e.target.dataset.group === 'all') {
+            // Обновляем активную кнопку
+            document.querySelectorAll('.group-filter').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Сбрасываем фильтр группы
+            currentGroup = 'all';
+            
+            // Обновляем расписание
+            const activeDay = document.querySelector('.day-selector.active');
+            if (activeDay) {
+                const day = parseInt(activeDay.dataset.day);
+                updateSchedule(day);
+            }
+        }
+    });
+    
+    function generateClassesHTML(classes) {
+        return classes.map(cls => `
+            <div class="schedule-card {% if view_type == 'student' %}student-view{% elif view_type == 'teacher' %}teacher-view{% else %}admin-view{% endif %}" style="border-left: 4px solid ${cls.lesson_type_color};">
+                <div class="course-info">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="course-name mb-0">
+                            <i class="fas fa-book me-2"></i>${cls.course}
+                        </h6>
+                        <span class="lesson-type-badge" style="background-color: ${cls.lesson_type_color}; color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.75rem; font-weight: 500;">
+                            <i class="${cls.lesson_type_icon} me-1"></i>${cls.lesson_type_name}
+                        </span>
+                    </div>
+                    <div class="schedule-details">
+                        {% if view_type == 'student' %}
+                        <div class="detail-item">
+                            <i class="fas fa-user-tie me-2"></i>
+                            <span>${cls.teacher}</span>
+                        </div>
+                        {% elif view_type == 'teacher' %}
+                        <div class="detail-item">
+                            <i class="fas fa-users me-2"></i>
+                            <span>${cls.group}</span>
+                        </div>
+                        {% else %}
+                        <div class="detail-item">
+                            <i class="fas fa-user-tie me-2"></i>
+                            <span>${cls.teacher}</span>
+                        </div>
+                        <div class="detail-item">
+                            <i class="fas fa-users me-2"></i>
+                            <span>${cls.group}</span>
+                        </div>
+                        {% endif %}
+                        <div class="detail-item">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            <span>${cls.room}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function showSelectSpecialtyMessage() {
+        const daySchedule = document.getElementById('day-schedule');
+        daySchedule.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-graduation-cap fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted mb-2">Выберите специальность</h5>
+                <p class="text-muted mb-0">Для просмотра расписания выберите специальность в фильтре выше</p>
+            </div>
+        `;
+    }
+    
+    function generateNoClassesHTML() {
+        return `
+            <div class="no-classes">
+                <i class="fas fa-coffee fa-2x text-muted mb-2"></i>
+                <p class="text-muted mb-0">Нет занятий</p>
+            </div>
+        `;
+    }
+});
+</script>
 {% endblock %}

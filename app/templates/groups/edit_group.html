@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Редактирование группы {{ group.name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="name" class="form-label">Название группы</label>
+                                <input type="text" class="form-control" id="name" name="name" 
+                                       value="{{ group.name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="specialty" class="form-label">Специальность</label>
+                                <select class="form-select" id="specialty" name="specialty" required>
+                                    <option value="ПКС" {% if group.specialty == 'ПКС' %}selected{% endif %}>ПКС - Программирование</option>
+                                    <option value="ИС" {% if group.specialty == 'ИС' %}selected{% endif %}>ИС - Информационные системы</option>
+                                    <option value="ЭК" {% if group.specialty == 'ЭК' %}selected{% endif %}>ЭК - Экономика</option>
+                                    <option value="МН" {% if group.specialty == 'МН' %}selected{% endif %}>МН - Математика</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="course_year" class="form-label">Курс</label>
+                                <select class="form-select" id="course_year" name="course_year" required>
+                                    <option value="1" {% if group.course_year == 1 %}selected{% endif %}>1 курс</option>
+                                    <option value="2" {% if group.course_year == 2 %}selected{% endif %}>2 курс</option>
+                                    <option value="3" {% if group.course_year == 3 %}selected{% endif %}>3 курс</option>
+                                    <option value="4" {% if group.course_year == 4 %}selected{% endif %}>4 курс</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="group_number" class="form-label">Номер группы</label>
+                                <input type="number" class="form-control" id="group_number" name="group_number" 
+                                       value="{{ group.group_number }}" min="1" max="99" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="max_students" class="form-label">Максимум студентов</label>
+                                <input type="number" class="form-control" id="max_students" name="max_students" 
+                                       value="{{ group.max_students }}" min="1" max="50" required>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('view_group', group_id=group.id) }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>Назад
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i>Сохранить изменения
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -56,13 +56,20 @@
                             <i class="fas fa-user-plus me-2"></i>Назначить на курс
                         </h2>
                         <div style="min-width:280px; max-width:360px;">
-                            <label class="form-label text-white small mb-1">Пользователь</label>
-                            {{ form.user_id(class="form-select form-select-sm", id="user_select") }}
+                            <label class="form-label text-white small mb-1">Поиск пользователя</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm" id="user_search" 
+                                       placeholder="Введите имя пользователя..." autocomplete="off">
+                                <div id="user_search_results" class="position-absolute w-100 bg-light border rounded shadow-sm" 
+                                     style="top: 100%; z-index: 1000; max-height: 200px; overflow-y: auto; display: none;">
+                                </div>
+                            </div>
+                            <input type="hidden" id="selected_user_id" name="user_id">
                         </div>
                     </div>
                 </div>
                 <div class="card-body" style="background:white;">
-                    <div id="coursesContainer" class="mt-4" style="display:none;">
+                    <div id="coursesContainer" class="mt-4">
                         <div class="table-responsive">
                             <table class="table align-middle">
                                 <thead>
@@ -72,6 +79,12 @@
                                     </tr>
                                 </thead>
                                 <tbody id="coursesTableBody">
+                                    <tr>
+                                        <td colspan="2" class="text-center text-muted py-4">
+                                            <i class="fas fa-user-search fa-2x mb-2"></i><br>
+                                            Выберите пользователя для просмотра курсов
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
@@ -99,9 +112,15 @@
     }
 
     function loadCourses(userId) {
-        if (!userId) { return; }
+        if (!userId) { 
+            showEmptyMessage();
+            return; 
+        }
         $.getJSON('{{ url_for('api_user_courses_status') }}', { user_id: userId }, function(data) {
-            if (!data || !data.courses) { return; }
+            if (!data || !data.courses) { 
+                showEmptyMessage();
+                return; 
+            }
             var tbody = $('#coursesTableBody');
             tbody.empty();
             data.courses.forEach(function(c) {
@@ -119,8 +138,13 @@
                 row.append(actionCell);
                 tbody.append(row);
             });
-            $('#coursesContainer').show();
         });
+    }
+
+    function showEmptyMessage() {
+        var tbody = $('#coursesTableBody');
+        tbody.empty();
+        tbody.append('<tr><td colspan="2" class="text-center text-muted py-4"><i class="fas fa-user-search fa-2x mb-2"></i><br>Выберите пользователя для просмотра курсов</td></tr>');
     }
 
     function bindToggleHandlers(wrapper, userId, courseId) {
@@ -148,14 +172,74 @@
         });
     }
 
-    $(function() {
-        var userSelect = $('#user_select');
-        userSelect.off('change').on('change', function() {
-            var uid = $(this).val();
-            loadCourses(uid);
+    function searchUsers(query) {
+        if (query.length < 1) {
+            $('#user_search_results').hide();
+            return;
+        }
+        
+        $.getJSON('{{ url_for('api_search_users') }}', { q: query }, function(data) {
+            var results = $('#user_search_results');
+            results.empty();
+            
+            if (data.users && data.users.length > 0) {
+                data.users.forEach(function(user) {
+                    var item = $('<div class="p-2 border-bottom user-search-item" style="cursor: pointer; color: #333;"></div>');
+                    item.html('<strong>' + user.username + '</strong> <small class="text-muted">(' + user.role + ')</small>');
+                    item.data('user-id', user.id);
+                    item.data('username', user.username);
+                    
+                    // Добавляем hover эффект
+                    item.hover(
+                        function() { $(this).css('background-color', '#e9ecef'); },
+                        function() { $(this).css('background-color', 'transparent'); }
+                    );
+                    
+                    results.append(item);
+                });
+                results.show();
+            } else {
+                results.html('<div class="p-2 text-muted">Пользователи не найдены</div>');
+                results.show();
+            }
         });
-        if (userSelect.val()) {
-            loadCourses(userSelect.val());
+    }
+
+    function selectUser(userId, username) {
+        $('#user_search').val(username);
+        $('#selected_user_id').val(userId);
+        $('#user_search_results').hide();
+        loadCourses(userId);
+    }
+
+    $(function() {
+        var userSearch = $('#user_search');
+        var searchResults = $('#user_search_results');
+        
+        // Поиск при вводе
+        userSearch.on('input', function() {
+            var query = $(this).val();
+            searchUsers(query);
+        });
+        
+        // Выбор пользователя из результатов
+        $(document).on('click', '.user-search-item', function() {
+            var userId = $(this).data('user-id');
+            var username = $(this).data('username');
+            selectUser(userId, username);
+        });
+        
+        // Скрытие результатов при клике вне
+        $(document).on('click', function(e) {
+            if (!$(e.target).closest('#user_search, #user_search_results').length) {
+                searchResults.hide();
+            }
+        });
+        
+        // Загрузка курсов если пользователь уже выбран
+        var selectedUserId = $('#selected_user_id').val();
+        if (selectedUserId) {
+            loadCourses(selectedUserId);
         }
     });
 </script>

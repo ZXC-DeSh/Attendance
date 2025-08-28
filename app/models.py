@@ -199,6 +199,18 @@ class Group(db.Model):
     @property
     def is_full(self) -> bool:
         return self.current_students_count >= self.max_students
+    
+    @property
+    def group_description(self) -> str:
+        """Возвращает красивое описание специальности группы"""
+        specialty_mapping = {
+            "Программирование": "Программирование и компьютерные системы",
+            "Информационные системы": "Информационные системы и технологии", 
+            "Веб-разработка": "Веб-разработка и цифровые решения",
+            "Экономика": "Экономика и управление",
+            "Математика": "Математика и информатика"
+        }
+        return specialty_mapping.get(self.specialty, self.specialty)
 
 class Course(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
@@ -277,6 +289,7 @@ class Schedule(db.Model):
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
     day_of_week = db.Column(db.Integer, nullable=False)
     slot_number = db.Column(db.Integer, nullable=False)
+    lesson_type = db.Column(db.String(20), nullable=False, default='lecture')  # lecture, practice, lab, exam
     week_type = db.Column(db.String(10), default='all')
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -286,6 +299,39 @@ class Schedule(db.Model):
     course = db.relationship('Course', backref='schedules')
     teacher = db.relationship('User', backref='teaching_schedules')
     room = db.relationship('Room', backref='schedules')
+
+    @property
+    def lesson_type_name(self):
+        """Возвращает русское название типа занятия"""
+        lesson_types = {
+            'lecture': 'Лекция',
+            'practice': 'Практика',
+            'lab': 'Лабораторная',
+            'exam': 'Экзамен'
+        }
+        return lesson_types.get(self.lesson_type, 'Лекция')
+    
+    @property
+    def lesson_type_icon(self):
+        """Возвращает иконку для типа занятия"""
+        lesson_icons = {
+            'lecture': 'fas fa-chalkboard-teacher',
+            'practice': 'fas fa-tasks',
+            'lab': 'fas fa-flask',
+            'exam': 'fas fa-clipboard-check'
+        }
+        return lesson_icons.get(self.lesson_type, 'fas fa-chalkboard-teacher')
+    
+    @property
+    def lesson_type_color(self):
+        """Возвращает цвет для типа занятия"""
+        lesson_colors = {
+            'lecture': '#007bff',      # Синий
+            'practice': '#28a745',     # Зеленый
+            'lab': '#ffc107',          # Желтый
+            'exam': '#dc3545'          # Красный
+        }
+        return lesson_colors.get(self.lesson_type, '#007bff')
 
     def __repr__(self):
         return f'<Schedule {self.group.name} {self.course.name} {self.day_of_week}:{self.slot_number}>'

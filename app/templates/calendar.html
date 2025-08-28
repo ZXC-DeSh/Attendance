@@ -74,8 +74,10 @@
                                     {% set day_number = week * 7 + day - start_weekday + 1 %}
                                     {% set is_current_month = day_number > 0 and day_number <= days_in_month %}
                                     {% set is_today = year == current_date.year and month == current_date.month and day_number == current_date.day %}
+                                    {% set is_weekend = day == 5 or day == 6 %}
+                                    {% set is_holiday = (month == 1 and day_number == 1) or (month == 1 and day_number == 7) or (month == 2 and day_number == 23) or (month == 3 and day_number == 8) or (month == 5 and day_number == 1) or (month == 5 and day_number == 9) or (month == 6 and day_number == 12) or (month == 11 and day_number == 4) %}
                                     
-                                    <div class="col calendar-day {% if not is_current_month %}text-muted{% endif %} {% if is_today %}bg-primary text-white rounded{% endif %}">
+                                    <div class="col calendar-day {% if not is_current_month %}text-muted{% endif %} {% if is_today %}bg-primary text-white rounded{% endif %} {% if is_current_month and is_weekend %}weekend{% endif %} {% if is_current_month and is_holiday %}holiday{% endif %}">
                                         <div class="calendar-day-content p-2 text-center position-relative">
                                             {% if is_current_month %}
                                                 <div class="day-number {% if is_today %}fw-bold{% endif %}">
@@ -218,6 +220,16 @@
     border-radius: 8px;
     padding: 0.75rem;
     margin: -0.75rem;
+}
+
+.calendar-day.weekend .day-number {
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.calendar-day.holiday .day-number {
+    color: #dc3545;
+    font-weight: bold;
 }
 </style>
 {% endblock %}

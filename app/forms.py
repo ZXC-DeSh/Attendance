@@ -1,9 +1,9 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, TextAreaField, SelectField, IntegerField
 from wtforms.validators import ValidationError, DataRequired, Email, EqualTo, Length, Regexp
 import sqlalchemy as sa
 from app import db
-from app.models import User, Course
+from app.models import User, Course, Group, Room
 import re
 
 
@@ -119,3 +119,76 @@ class NewsForm(FlaskForm):
         Length(min=10, max=5000, message='Содержание должно быть от 10 до 5000 символов')
     ])
     submit = SubmitField('Опубликовать')
+
+class CreateGroupForm(FlaskForm):
+    name = StringField('Название группы', validators=[
+        DataRequired(),
+        Length(min=2, max=20, message='Название группы должно быть от 2 до 20 символов'),
+        Regexp(r'^[А-ЯЁA-Z0-9-]+$', message='Название группы может содержать только заглавные буквы, цифры и дефис')
+    ])
+    specialty = SelectField('Специальность', choices=[
+        ('ПКС', 'Программное обеспечение вычислительной техники и автоматизированных систем'),
+        ('ИС', 'Информационные системы и программирование'),
+        ('ВД', 'Веб-разработка'),
+        ('КС', 'Компьютерные системы и комплексы'),
+        ('ПО', 'Программирование в компьютерных системах')
+    ], validators=[DataRequired()])
+    course_year = IntegerField('Курс', validators=[DataRequired()], render_kw={"min": 1, "max": 5})
+    group_number = IntegerField('Номер группы', validators=[DataRequired()], render_kw={"min": 1, "max": 10})
+    max_students = IntegerField('Максимальное количество студентов', validators=[DataRequired()], 
+                               default=25, render_kw={"min": 1, "max": 50})
+    submit = SubmitField('Создать группу')
+
+    def validate_name(self, name):
+        group = db.session.scalar(sa.select(Group).where(Group.name == name.data))
+        if group is not None:
+            raise ValidationError('Группа с таким названием уже существует.')
+
+    def validate_course_year(self, course_year):
+        if course_year.data < 1 or course_year.data > 5:
+            raise ValidationError('Курс должен быть от 1 до 5.')
+
+    def validate_group_number(self, group_number):
+        if group_number.data < 1 or group_number.data > 10:
+            raise ValidationError('Номер группы должен быть от 1 до 10.')
+
+    def validate_max_students(self, max_students):
+        if max_students.data < 1 or max_students.data > 50:
+            raise ValidationError('Максимальное количество студентов должно быть от 1 до 50.')
+
+class RoomForm(FlaskForm):
+    number = StringField('Номер аудитории', validators=[
+        DataRequired(message='Номер аудитории обязателен'),
+        Length(min=1, max=20, message='Номер аудитории должен быть от 1 до 20 символов')
+    ])
+    building = StringField('Корпус', validators=[
+        DataRequired(message='Корпус обязателен'),
+        Length(min=1, max=50, message='Название корпуса должно быть от 1 до 50 символов')
+    ])
+    room_type = SelectField('Тип аудитории', choices=[
+        ('лекционная', 'Лекционная'),
+        ('лабораторная', 'Лабораторная'),
+        ('компьютерная', 'Компьютерная'),
+        ('семинарская', 'Семинарская'),
+        ('конференц-зал', 'Конференц-зал'),
+        ('спортивный зал', 'Спортивный зал')
+    ], validators=[DataRequired(message='Тип аудитории обязателен')])
+    capacity = IntegerField('Вместимость', validators=[
+        DataRequired(message='Вместимость обязательна')
+    ])
+    is_active = BooleanField('Аудитория активна', default=True)
+    submit = SubmitField('Сохранить')
+
+    def __init__(self, original_number=None, *args, **kwargs):
+        super(RoomForm, self).__init__(*args, **kwargs)
+        self.original_number = original_number
+
+    def validate_number(self, number):
+        if number.data != self.original_number:
+            room = db.session.scalar(sa.select(Room).where(Room.number == number.data))
+            if room is not None:
+                raise ValidationError('Аудитория с таким номером уже существует.')
+
+    def validate_capacity(self, capacity):
+        if capacity.data < 1 or capacity.data > 500:
+            raise ValidationError('Вместимость должна быть от 1 до 500 мест.')

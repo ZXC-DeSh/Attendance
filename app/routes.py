@@ -1,7 +1,7 @@
 from flask import render_template, flash, redirect, url_for, request, current_app
 from flask_login import login_user, logout_user, current_user, login_required
 from app import app, db
-from app.forms import LoginForm, RegistrationForm, EditProfileForm, CourseForm, MarkAttendanceForm, AssignCourseForm, MessageForm, ResetPasswordForm, NewsForm, ResetPasswordRequestForm
+from app.forms import LoginForm, RegistrationForm, EditProfileForm, CourseForm, MarkAttendanceForm, AssignCourseForm, MessageForm, ResetPasswordForm, NewsForm, ResetPasswordRequestForm, CreateGroupForm, RoomForm
 from app.models import User, Course, AttendanceRecord, Message, News, Group, Schedule, Room, TeacherSubstitution
 from datetime import datetime, timezone, timedelta
 import sqlalchemy as sa
@@ -22,7 +22,11 @@ def get_stats():
         'total_users': User.query.count(),
         'total_students': User.query.filter_by(role='student').count(),
         'total_teachers': User.query.filter_by(role='teacher').count(),
-        'total_courses': Course.query.count()
+        'total_admins': User.query.filter_by(role='admin').count(),
+        'total_courses': Course.query.count(),
+        'active_courses': Course.query.count(),  # Можно добавить условие для активных курсов
+        'total_enrollments': sum(len(course.students) for course in Course.query.all()),
+        'total_teachers_assigned': len(set(teacher.id for course in Course.query.all() for teacher in course.teachers))
     }
 
 def get_recent_news(limit=5):
@@ -145,11 +149,47 @@ def admin_panel():
     
     recent_news = get_recent_news(6)
     
-    return render_template('admin_panel.html',
+    from datetime import datetime
+    return render_template('admin/admin_panel.html',
                          stats=stats,
                          users=users,
                          courses=courses,
-                         recent_news=recent_news)
+                         news_list=recent_news,
+                         moment=datetime.now())
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    """Страница управления пользователями"""
+    if not current_user.is_admin():
+        flash('Доступ запрещен', 'danger')
+        return redirect(url_for('index'))
+    
+    stats = get_stats()
+    users = User.query.filter(User.id != current_user.id).order_by(User.role, User.username).all()
+    
+    return render_template('admin/admin_users.html',
+                         title='Управление пользователями',
+                         stats=stats,
+                         users=users)
+
+@app.route('/admin/courses')
+@login_required
+def admin_courses():
+    """Страница управления курсами"""
+    if not current_user.is_admin():
+        flash('Доступ запрещен', 'danger')
+        return redirect(url_for('index'))
+    
+    stats = get_stats()
+    courses = Course.query.all()
+    all_teachers = User.query.filter_by(role='teacher').all()
+    
+    return render_template('admin/admin_courses.html',
+                         title='Управление курсами',
+                         stats=stats,
+                         courses=courses,
+                         all_teachers=all_teachers)
 
 @app.route('/admin/create_news', methods=['GET', 'POST'])
 @login_required
@@ -170,7 +210,7 @@ def create_news():
         flash('Новость успешно создана!', 'success')
         return redirect(url_for('admin_panel'))
     
-    return render_template('create_news.html', title='Создать новость', form=form)
+    return render_template('admin/create_news.html', title='Создать новость', form=form)
 
 @app.route('/calendar')
 @login_required
@@ -192,11 +232,15 @@ def calendar():
         'role': current_user.role
     }
     
+    # Определяем выбранную дату (по умолчанию сегодня)
+    selected_date = current_date
+    
     return render_template('calendar.html',
                          title='Календарь',
                          year=year,
                          month=month,
                          current_date=current_date,
+                         selected_date=selected_date,
                          schedule_data=schedule_data,
                          datetime=datetime,
                          timedelta=timedelta)
@@ -239,7 +283,7 @@ def group():
     prev_url = url_for('group', page=page - 1, search=search) \
         if page > 1 else None
     
-    return render_template('group.html',
+    return render_template('groups/group.html',
                          title='Группы',
                          groups=groups_page,
                          next_url=next_url,
@@ -281,15 +325,79 @@ def view_group(group_id):
                 'course_name': record.course.name if record.course else 'Неизвестный курс'
             }
     
-    return render_template('view_group.html',
+    # Определяем текущий месяц для календаря
+    current_month = selected_date_obj.replace(day=1)
+    today = datetime.now().date()
+    
+    # Подсчитываем статистику посещаемости
+    present_count = sum(1 for stats in attendance_stats.values() if stats['status'] == 'present')
+    absent_count = sum(1 for stats in attendance_stats.values() if stats['status'] == 'absent')
+    late_count = sum(1 for stats in attendance_stats.values() if stats['status'] == 'late')
+    
+    return render_template('groups/view_group.html',
                          title=f'Группа {group.name}',
                          group=group,
                          students=students,
                          attendance_stats=attendance_stats,
                          selected_date=selected_date,
                          selected_date_obj=selected_date_obj,
+                         current_month=current_month,
+                         today=today,
+                         present_count=present_count,
+                         absent_count=absent_count,
+                         late_count=late_count,
                          datetime=datetime,
                          timedelta=timedelta)
+
+@app.route('/group/<int:group_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_group(group_id):
+    if not current_user.is_admin():
+        flash('У вас нет прав для редактирования групп.', 'error')
+        return redirect(url_for('group'))
+    
+    group = db.get_or_404(Group, group_id)
+    
+    if request.method == 'POST':
+        group.name = request.form.get('name', group.name)
+        group.specialty = request.form.get('specialty', group.specialty)
+        group.course_year = int(request.form.get('course_year', group.course_year))
+        group.group_number = int(request.form.get('group_number', group.group_number))
+        group.max_students = int(request.form.get('max_students', group.max_students))
+        
+        try:
+            db.session.commit()
+            flash(f'Группа {group.name} успешно обновлена!', 'success')
+            return redirect(url_for('view_group', group_id=group.id))
+        except Exception as e:
+            db.session.rollback()
+            flash('Ошибка при обновлении группы.', 'error')
+    
+    return render_template('groups/edit_group.html', group=group)
+
+@app.route('/group/<int:group_id>/delete', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    if not current_user.is_admin():
+        flash('У вас нет прав для удаления групп.', 'error')
+        return redirect(url_for('group'))
+    
+    group = db.get_or_404(Group, group_id)
+    group_name = group.name
+    
+    try:
+        # Удаляем все связи студентов с группой
+        for student in group.students:
+            student.group = None
+        
+        db.session.delete(group)
+        db.session.commit()
+        flash(f'Группа {group_name} успешно удалена!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Ошибка при удалении группы.', 'error')
+    
+    return redirect(url_for('group'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -310,7 +418,7 @@ def login():
             else:
                 next_page = url_for('index')
         return redirect(next_page)
-    return render_template('login.html', title='Вход', form=form)
+    return render_template('auth/login.html', title='Вход', form=form)
 
 @app.route('/logout')
 def logout():
@@ -329,7 +437,7 @@ def register():
         db.session.commit()
         flash('Поздравляем, вы зарегистрированы!', 'success')
         return redirect(url_for('login'))
-    return render_template('register.html', title='Регистрация', form=form)
+    return render_template('auth/register.html', title='Регистрация', form=form)
 
 @app.route('/user/<username>')
 @login_required
@@ -400,7 +508,7 @@ def edit_profile():
 @app.route('/create_course', methods=['GET', 'POST'])
 @login_required
 def create_course():
-    if current_user.role != 'teacher':
+    if current_user.role not in ['teacher', 'admin']:
         flash('У вас нет прав создавать курсы.', 'danger')
         return redirect(url_for('index'))
     
@@ -418,7 +526,7 @@ def create_course():
             db.session.rollback()
             flash(f'Ошибка создания курса: {str(e)}', 'danger')
     
-    return render_template('create_edit_course.html', title='Создать курс', form=form)
+    return render_template('courses/create_edit_course.html', title='Создать курс', form=form)
 
 @app.route('/edit_course/<int:course_id>', methods=['GET', 'POST'])
 @login_required
@@ -453,7 +561,7 @@ def edit_course(course_id):
         form.name.data = course.name
         form.description.data = course.description
     
-    return render_template('create_edit_course.html', title='Редактировать курс', form=form, course=course)
+    return render_template('courses/create_edit_course.html', title='Редактировать курс', form=form, course=course)
 
 @app.route('/courses')
 @login_required
@@ -526,7 +634,7 @@ def courses():
     
     courses = courses_page
     
-    return render_template('courses.html', 
+    return render_template('courses/courses.html', 
                          title='Курсы',
                          courses=courses,
                          next_url=next_url,
@@ -568,13 +676,9 @@ def assign_to_course():
 
     form = AssignCourseForm()
     
-    # Получаем всех пользователей и курсы
-    users = db.session.query(User).order_by(User.username).all()
-    courses = db.session.query(Course).order_by(Course.name).all()
-    
-    # Устанавливаем choices для формы
-    form.user_id.choices = [(u.id, f"{u.username} ({u.role})") for u in users]
-    form.course_id.choices = [(c.id, c.name) for c in courses]
+    # Устанавливаем пустые choices для формы (поиск будет через API)
+    form.user_id.choices = []
+    form.course_id.choices = []
 
     if form.validate_on_submit():
         user = db.session.get(User, form.user_id.data)
@@ -609,7 +713,7 @@ def assign_to_course():
         
         return redirect(url_for('assign_to_course'))
     
-    return render_template('assign_to_course.html', title='Назначить на курс', form=form)
+    return render_template('courses/assign_to_course.html', title='Назначить на курс', form=form)
 
 @app.route('/api/user_courses_status')
 @login_required
@@ -651,8 +755,8 @@ def api_user_courses_status():
 @app.route('/api/toggle_assignment', methods=['POST'])
 @login_required
 def api_toggle_assignment():
-    # Доступ только преподавателям
-    if current_user.role != 'teacher':
+    # Доступ только преподавателям и администраторам
+    if current_user.role not in ['teacher', 'admin']:
         return {'error': 'Доступ запрещен'}, 403
 
     data = request.get_json(silent=True) or request.form
@@ -697,8 +801,8 @@ def api_toggle_assignment():
 @app.route('/api/set_assignment', methods=['POST'])
 @login_required
 def api_set_assignment():
-    # Доступ только преподавателям
-    if current_user.role != 'teacher':
+    # Доступ только преподавателям и администраторам
+    if current_user.role not in ['teacher', 'admin']:
         return {'error': 'Доступ запрещен'}, 403
 
     data = request.get_json(silent=True) or request.form
@@ -741,30 +845,65 @@ def api_set_assignment():
         db.session.rollback()
         return {'error': f'Ошибка обновления: {str(e)}'}, 500
 
+@app.route('/api/search_users')
+@login_required
+def api_search_users():
+    # Доступ только администраторам
+    if not current_user.is_admin():
+        return {'error': 'Доступ запрещен'}, 403
+
+    query = request.args.get('q', '').strip()
+    if len(query) < 1:
+        return {'users': []}
+
+    # Поиск пользователей по имени (регистронезависимый)
+    users = db.session.query(User).filter(
+        User.username.ilike(f'%{query}%')
+    ).order_by(User.username).limit(10).all()
+
+    return {
+        'users': [
+            {
+                'id': user.id,
+                'username': user.username,
+                'role': user.role
+            }
+            for user in users
+        ]
+    }
+
 @app.route('/mark_attendance', methods=['GET', 'POST'])
 @login_required
 def mark_attendance():
-    if current_user.role != 'teacher':
+    if current_user.role not in ['teacher', 'admin']:
         flash('У вас нет прав отмечать посещаемость.', 'danger')
         return redirect(url_for('index'))
 
     form = MarkAttendanceForm()
 
-    # Получаем курсы преподавателя через relationship
-    teacher_courses = current_user.teaching_courses
+    # Получаем курсы в зависимости от роли
+    if current_user.role == 'admin':
+        # Администраторы видят все курсы
+        available_courses = Course.query.all()
+    else:
+        # Преподаватели видят только свои курсы
+        available_courses = current_user.teaching_courses
     
-    # Если у преподавателя нет курсов, показываем сообщение
-    if not teacher_courses:
-        flash('Вы не назначены ни на один курс.', 'warning')
+    # Если нет доступных курсов, показываем сообщение
+    if not available_courses:
+        if current_user.role == 'admin':
+            flash('В системе нет курсов.', 'warning')
+        else:
+            flash('Вы не назначены ни на один курс.', 'warning')
     
-    form.course_id.choices = [(c.id, c.name) for c in teacher_courses]
+    form.course_id.choices = [(c.id, c.name) for c in available_courses]
 
     # Обработка выбора курса
     selected_course_id = request.args.get('course_id', type=int) or \
                        (form.course_id.data if request.method == 'POST' else None)
 
     if selected_course_id:
-        selected_course = next((c for c in teacher_courses if c.id == selected_course_id), None)
+        selected_course = next((c for c in available_courses if c.id == selected_course_id), None)
         
         if selected_course:
             # Более надежная загрузка студентов
@@ -845,7 +984,7 @@ def mark_attendance():
 @app.route('/api/get_students_for_course')
 @login_required
 def get_students_for_course():
-    if current_user.role != 'teacher':
+    if current_user.role not in ['teacher', 'admin']:
         return {'error': 'Доступ запрещен'}, 403
     
     course_id = request.args.get('course_id', type=int)
@@ -903,7 +1042,7 @@ def chat_list():
     prev_url = url_for('chat_list', page=users_pagination.prev_num) \
         if users_pagination.has_prev else None
     
-    return render_template('chat_list.html', 
+    return render_template('chat/chat_list.html', 
                          title='Список чатов',
                          users=users,
                          next_url=next_url,
@@ -949,7 +1088,7 @@ def chat(username):
         db.session.commit()
         return redirect(url_for('chat', username=username))
     
-    return render_template('chat.html', 
+    return render_template('chat/chat.html', 
                          title=f'Чат с {username}',
                          messages=messages,
                          form=form,
@@ -969,7 +1108,7 @@ def reset_password_request():
             send_password_reset_email(user)
         flash('Проверьте вашу электронную почту для получения инструкций по сбросу пароля.', 'info')
         return redirect(url_for('login'))
-    return render_template('reset_password_request.html', title='Сброс пароля', form=form)
+    return render_template('auth/reset_password_request.html', title='Сброс пароля', form=form)
 
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
@@ -984,7 +1123,7 @@ def reset_password(token):
         db.session.commit()
         flash('Ваш пароль был изменен.', 'success')
         return redirect(url_for('login'))
-    return render_template('reset_password.html', title='Сброс пароля', form=form)
+    return render_template('auth/reset_password.html', title='Сброс пароля', form=form)
 
 @app.route('/toggle_favorite/<int:course_id>')
 @login_required
@@ -1102,95 +1241,52 @@ def admin_delete_news(news_id):
 @app.route('/admin/create_groups', methods=['GET', 'POST'])
 @login_required
 def admin_create_groups():
-    """Создание групп и распределение студентов (только для админов)"""
+    """Создание групп (только для админов)"""
     if not current_user.is_admin():
         flash('Доступ запрещен', 'danger')
         return redirect(url_for('admin_panel'))
     
-    if request.method == 'POST':
+    form = CreateGroupForm()
+    
+    if form.validate_on_submit():
         try:
-            # Создаем 10 групп по 25 студентов в каждой
-            groups_data = [
-                # Программирование
-                {"name": "ПКС-21", "specialty": "Программирование", "course_year": 2, "group_number": 1, "max_students": 25},
-                {"name": "ПКС-22", "specialty": "Программирование", "course_year": 2, "group_number": 2, "max_students": 25},
-                {"name": "ПКС-23", "specialty": "Программирование", "course_year": 2, "group_number": 3, "max_students": 25},
-                {"name": "ПКС-31", "specialty": "Программирование", "course_year": 3, "group_number": 1, "max_students": 25},
-                {"name": "ПКС-32", "specialty": "Программирование", "course_year": 3, "group_number": 2, "max_students": 25},
-                
-                # Информационные системы
-                {"name": "ИС-21", "specialty": "Информационные системы", "course_year": 2, "group_number": 1, "max_students": 25},
-                {"name": "ИС-22", "specialty": "Информационные системы", "course_year": 2, "group_number": 2, "max_students": 25},
-                {"name": "ИС-31", "specialty": "Информационные системы", "course_year": 3, "group_number": 1, "max_students": 25},
-                
-                # Веб-разработка
-                {"name": "ВД-21", "specialty": "Веб-разработка", "course_year": 2, "group_number": 1, "max_students": 25},
-                {"name": "ВД-31", "specialty": "Веб-разработка", "course_year": 3, "group_number": 1, "max_students": 25},
-            ]
+            # Создаем новую группу
+            group = Group(
+                name=form.name.data,
+                specialty=form.specialty.data,
+                course_year=form.course_year.data,
+                group_number=form.group_number.data,
+                max_students=form.max_students.data
+            )
             
-            created_groups = []
-            
-            for group_data in groups_data:
-                # Проверяем, существует ли группа
-                existing_group = Group.query.filter_by(name=group_data["name"]).first()
-                if existing_group:
-                    created_groups.append(existing_group)
-                    continue
-                
-                # Создаем новую группу
-                group = Group(**group_data)
-                db.session.add(group)
-                created_groups.append(group)
-            
-            # Сохраняем группы
+            db.session.add(group)
             db.session.commit()
             
-            # Теперь распределяем существующих студентов по группам
-            students = User.query.filter_by(role='student').all()
-            
-            if students:
-                # Распределяем студентов по группам (максимум 25 в каждой)
-                for i, student in enumerate(students):
-                    # Выбираем группу по индексу студента
-                    group_index = i % len(created_groups)
-                    group = created_groups[group_index]
-                    
-                    # Проверяем, не переполнена ли группа
-                    if len(group.students) >= group.max_students:
-                        # Если группа полная, ищем следующую с местом
-                        for j in range(len(created_groups)):
-                            next_group_index = (group_index + j) % len(created_groups)
-                            next_group = created_groups[next_group_index]
-                            if len(next_group.students) < next_group.max_students:
-                                group = next_group
-                                break
-                    
-                    # Добавляем студента в группу
-                    if student not in group.students and len(group.students) < group.max_students:
-                        group.students.append(student)
-                
-                # Сохраняем распределение
-                db.session.commit()
-                
-                flash(f'Создано {len(created_groups)} групп и распределено {len(students)} студентов', 'success')
-            else:
-                flash(f'Создано {len(created_groups)} групп. Студенты не найдены.', 'info')
-            
-            return redirect(url_for('admin_panel'))
+            flash(f'Группа "{group.name}" создана успешно!', 'success')
+            return redirect(url_for('admin_create_groups'))
             
         except Exception as e:
             db.session.rollback()
-            flash(f'Ошибка при создании групп: {str(e)}', 'danger')
+            flash(f'Ошибка при создании группы: {str(e)}', 'danger')
     
-    return render_template('admin_create_groups.html', title='Создать группы')
+    # Получаем существующие группы для отображения
+    existing_groups = Group.query.order_by(Group.course_year, Group.specialty, Group.group_number).all()
+    
+    return render_template('admin/admin_create_groups.html', 
+                         title='Создать группы', 
+                         form=form, 
+                         existing_groups=existing_groups)
 
 @app.route('/schedule')
 @login_required
 def schedule():
     """Страница расписания для всех пользователей"""
-    # Получаем текущую неделю
+    # Получаем параметр недели из URL
+    week_offset = request.args.get('week', 0, type=int)
+    
+    # Получаем текущую неделю с учетом смещения
     today = datetime.now().date()
-    start_of_week = today - timedelta(days=today.weekday())
+    start_of_week = today - timedelta(days=today.weekday()) + timedelta(weeks=week_offset)
     
     # Получаем расписание в зависимости от роли пользователя
     if current_user.role == 'student':
@@ -1219,7 +1315,7 @@ def schedule():
     
     # Группируем расписание по дням недели
     week_schedule = {}
-    for day in range(1, 6):  # Понедельник-Пятница
+    for day in range(1, 8):  # Понедельник-Воскресенье
         week_schedule[day] = {}
         for slot in range(1, 5):  # 1-4 пары
             week_schedule[day][slot] = []
@@ -1235,7 +1331,20 @@ def schedule():
         2: 'Вторник', 
         3: 'Среда',
         4: 'Четверг',
-        5: 'Пятница'
+        5: 'Пятница',
+        6: 'Суббота',
+        7: 'Воскресенье'
+    }
+    
+    # Сокращения дней недели
+    days_short = {
+        1: 'Пн',
+        2: 'Вт', 
+        3: 'Ср',
+        4: 'Чт',
+        5: 'Пт',
+        6: 'Сб',
+        7: 'Вс'
     }
     
     # Время пар
@@ -1246,13 +1355,81 @@ def schedule():
         4: '14:10 - 15:40'
     }
     
+    # Определяем выбранный день (по умолчанию текущий день недели)
+    current_weekday = today.weekday() + 1  # Понедельник = 1, Воскресенье = 7
+    if week_offset == 0:  # Только для текущей недели
+        selected_day = current_weekday
+    else:
+        selected_day = 1  # Для других недель показываем понедельник
+    
+    # Вычисляем даты для каждого дня недели
+    week_dates = {}
+    for day_num in range(1, 8):  # Понедельник-Воскресенье
+        week_dates[day_num] = (start_of_week + timedelta(days=day_num-1)).strftime('%d.%m')
+    
+    # Вычисляем диапазон недели для отображения
+    week_range = f"{start_of_week.strftime('%d.%m')} - {(start_of_week + timedelta(days=6)).strftime('%d.%m.%Y')}"
+    
+    # Получаем список специальностей для фильтра
+    specialties = []
+    courses_by_specialty = {}
+    groups_by_specialty = {}
+    
+    if view_type == 'admin':
+        # Для администраторов показываем все специальности из базы данных
+        specialties = db.session.query(Group.specialty).distinct().order_by(Group.specialty).all()
+        specialties = [s[0] for s in specialties]
+    else:
+        # Для студентов и преподавателей показываем только их специальности
+        if view_type == 'student' and hasattr(current_user, 'group') and current_user.group:
+            specialties = [current_user.group.specialty]
+        elif view_type == 'teacher':
+            # Получаем специальности групп, которые преподает учитель
+            teacher_specialties = set()
+            for schedule in schedules:
+                if schedule.group and schedule.group.specialty:
+                    teacher_specialties.add(schedule.group.specialty)
+            specialties = list(teacher_specialties)
+    
+    # Группируем курсы и группы по специальностям
+    for schedule in schedules:
+        if schedule.group and schedule.group.specialty:
+            specialty = schedule.group.specialty
+            course_year = schedule.group.course_year
+            group_number = schedule.group.group_number
+            
+            if specialty not in courses_by_specialty:
+                courses_by_specialty[specialty] = set()
+                groups_by_specialty[specialty] = {}
+            
+            courses_by_specialty[specialty].add(course_year)
+            
+            if course_year not in groups_by_specialty[specialty]:
+                groups_by_specialty[specialty][course_year] = set()
+            groups_by_specialty[specialty][course_year].add(group_number)
+    
+    # Преобразуем в списки для шаблона
+    for specialty in courses_by_specialty:
+        courses_by_specialty[specialty] = sorted(list(courses_by_specialty[specialty]))
+        for course_year in groups_by_specialty[specialty]:
+            groups_by_specialty[specialty][course_year] = sorted(list(groups_by_specialty[specialty][course_year]))
+    
     return render_template('schedule.html',
                          title='Расписание',
                          week_schedule=week_schedule,
                          days_names=days_names,
+                         days_short=days_short,
                          slots_time=slots_time,
                          view_type=view_type,
-                         start_of_week=start_of_week)
+                         start_of_week=start_of_week,
+                         selected_day=selected_day,
+                         week_dates=week_dates,
+                         week_offset=week_offset,
+                         current_weekday=current_weekday,
+                         week_range=week_range,
+                         specialties=specialties,
+                         courses_by_specialty=courses_by_specialty,
+                         groups_by_specialty=groups_by_specialty)
 
 @app.route('/admin/schedule')
 @login_required
@@ -1275,6 +1452,8 @@ def admin_schedule():
     
     # Группируем расписание по группам
     group_schedules = {}
+    schedules_dict = {}
+    
     for group in groups:
         group_schedules[group.id] = {}
         for day in range(1, 6):
@@ -1288,14 +1467,17 @@ def admin_schedule():
             schedule.day_of_week in group_schedules[schedule.group_id] and
             schedule.slot_number in group_schedules[schedule.group_id][schedule.day_of_week]):
             group_schedules[schedule.group_id][schedule.day_of_week][schedule.slot_number] = schedule
+            # Создаем словарь для шаблона
+            schedules_dict[(schedule.group_id, schedule.day_of_week, schedule.slot_number)] = schedule
     
-    return render_template('admin_schedule.html',
+    return render_template('admin/admin_schedule.html',
                          title='Управление расписанием',
                          groups=groups,
                          courses=courses,
                          teachers=teachers,
                          rooms=rooms,
-                         group_schedules=group_schedules)
+                         group_schedules=group_schedules,
+                         schedules=schedules_dict)
 
 @app.route('/admin/schedule/edit', methods=['POST'])
 @login_required
@@ -1374,7 +1556,7 @@ def admin_substitutions():
     
     substitutions = TeacherSubstitution.query.order_by(TeacherSubstitution.date.desc()).all()
     
-    return render_template('admin_substitutions.html',
+    return render_template('admin/admin_substitutions.html',
                          title='Замены преподавателей',
                          substitutions=substitutions)
 
@@ -1415,6 +1597,171 @@ def admin_rooms():
     
     rooms = Room.query.all()
     
-    return render_template('admin_rooms.html',
+    return render_template('admin/admin_rooms.html',
                          title='Управление аудиториями',
                          rooms=rooms)
+
+@app.route('/admin/rooms/create', methods=['POST'])
+@login_required
+def admin_room_create():
+    """Создание новой аудитории"""
+    if not current_user.is_admin():
+        return {'success': False, 'message': 'Доступ запрещен'}, 403
+    
+    try:
+        data = request.get_json()
+        
+        # Логируем полученные данные для отладки
+        print(f"Создание новой аудитории:")
+        print(f"Полученные данные: {data}")
+        
+        # Проверяем наличие обязательных полей
+        required_fields = ['number', 'building', 'room_type', 'capacity']
+        missing_fields = [field for field in required_fields if field not in data or not data[field]]
+        if missing_fields:
+            return {'success': False, 'message': f'Отсутствуют обязательные поля: {", ".join(missing_fields)}'}, 400
+        
+        # Проверяем валидность данных
+        if not isinstance(data['capacity'], (int, str)) or int(data['capacity']) < 1 or int(data['capacity']) > 500:
+            return {'success': False, 'message': 'Вместимость должна быть от 1 до 500 мест'}, 400
+            
+        if len(data['number'].strip()) == 0 or len(data['number']) > 20:
+            return {'success': False, 'message': 'Номер аудитории должен быть от 1 до 20 символов'}, 400
+            
+        if len(data['building'].strip()) == 0 or len(data['building']) > 50:
+            return {'success': False, 'message': 'Название корпуса должно быть от 1 до 50 символов'}, 400
+        
+        # Проверяем, существует ли аудитория с таким номером
+        existing_room = Room.query.filter_by(number=data['number'].strip()).first()
+        if existing_room:
+            return {'success': False, 'message': f'Аудитория {data["number"]} уже существует'}, 400
+        
+        # Создаем новую аудиторию
+        room = Room(
+            number=data['number'].strip(),
+            building=data['building'].strip(),
+            room_type=data['room_type'],
+            capacity=int(data['capacity']),
+            is_active=data.get('is_active', True)
+        )
+        
+        db.session.add(room)
+        db.session.commit()
+        
+        print(f"Аудитория успешно создана: {room.number}")
+        
+        return {
+            'success': True, 
+            'message': f'Аудитория {room.number} создана успешно',
+            'room': {
+                'id': room.id,
+                'number': room.number,
+                'building': room.building,
+                'room_type': room.room_type,
+                'capacity': room.capacity,
+                'is_active': room.is_active
+            }
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при создании аудитории: {str(e)}")
+        return {'success': False, 'message': f'Ошибка создания аудитории: {str(e)}'}, 500
+
+@app.route('/admin/rooms/<int:room_id>/update', methods=['POST'])
+@login_required
+def admin_room_update(room_id):
+    """Обновление аудитории"""
+    if not current_user.is_admin():
+        return {'success': False, 'message': 'Доступ запрещен'}, 403
+    
+    try:
+        room = Room.query.get_or_404(room_id)
+        data = request.get_json()
+        
+        # Логируем полученные данные для отладки
+        print(f"Обновление аудитории {room_id}:")
+        print(f"Полученные данные: {data}")
+        print(f"Текущая аудитория: номер={room.number}, корпус={room.building}")
+        
+        # Проверяем наличие обязательных полей
+        required_fields = ['number', 'building', 'room_type', 'capacity']
+        missing_fields = [field for field in required_fields if field not in data or not data[field]]
+        if missing_fields:
+            return {'success': False, 'message': f'Отсутствуют обязательные поля: {", ".join(missing_fields)}'}, 400
+        
+        # Проверяем валидность данных
+        if not isinstance(data['capacity'], (int, str)) or int(data['capacity']) < 1 or int(data['capacity']) > 500:
+            return {'success': False, 'message': 'Вместимость должна быть от 1 до 500 мест'}, 400
+            
+        if len(data['number'].strip()) == 0 or len(data['number']) > 20:
+            return {'success': False, 'message': 'Номер аудитории должен быть от 1 до 20 символов'}, 400
+            
+        if len(data['building'].strip()) == 0 or len(data['building']) > 50:
+            return {'success': False, 'message': 'Название корпуса должно быть от 1 до 50 символов'}, 400
+        
+        # Проверяем, не занят ли новый номер другой аудиторией
+        if data['number'].strip() != room.number:
+            existing_room = Room.query.filter_by(number=data['number'].strip()).first()
+            if existing_room:
+                return {'success': False, 'message': f'Аудитория {data["number"]} уже существует'}, 400
+        
+        # Обновляем данные аудитории
+        room.number = data['number'].strip()
+        room.building = data['building'].strip()
+        room.room_type = data['room_type']
+        room.capacity = int(data['capacity'])
+        room.is_active = data.get('is_active', True)
+        
+        db.session.commit()
+        
+        print(f"Аудитория успешно обновлена: {room.number}")
+        
+        return {
+            'success': True, 
+            'message': f'Аудитория {room.number} обновлена успешно',
+            'room': {
+                'id': room.id,
+                'number': room.number,
+                'building': room.building,
+                'room_type': room.room_type,
+                'capacity': room.capacity,
+                'is_active': room.is_active
+            }
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Ошибка при обновлении аудитории: {str(e)}")
+        return {'success': False, 'message': f'Ошибка обновления аудитории: {str(e)}'}, 500
+
+@app.route('/admin/rooms/<int:room_id>/delete', methods=['POST'])
+@login_required
+def admin_room_delete(room_id):
+    """Удаление аудитории"""
+    if not current_user.is_admin():
+        return {'success': False, 'message': 'Доступ запрещен'}, 403
+    
+    try:
+        room = Room.query.get_or_404(room_id)
+        room_number = room.number
+        
+        # Проверяем, используется ли аудитория в расписании
+        schedules_using_room = Schedule.query.filter_by(room_id=room.id, is_active=True).count()
+        if schedules_using_room > 0:
+            return {
+                'success': False, 
+                'message': f'Аудитория {room_number} используется в расписании ({schedules_using_room} занятий). Сначала удалите или измените расписание.'
+            }, 400
+        
+        db.session.delete(room)
+        db.session.commit()
+        
+        return {
+            'success': True, 
+            'message': f'Аудитория {room_number} удалена успешно'
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        return {'success': False, 'message': f'Ошибка удаления аудитории: {str(e)}'}, 500
