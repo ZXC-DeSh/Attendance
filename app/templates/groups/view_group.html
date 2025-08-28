@@ -9,7 +9,7 @@
                     <h1 class="display-5 text-primary">
                         <i class="fas fa-users me-3"></i>Группа {{ group.name }}
                     </h1>
-                    <p class="lead text-muted">{{ group.specialty }} • {{ group.course_year }} курс • Группа {{ group.group_number }}</p>
+                    <p class="lead text-muted">{{ group.group_description }} • {{ group.course_year }} курс • Группа {{ group.group_number }}</p>
                 </div>
                 <div>
                     <a href="{{ url_for('group') }}" class="btn btn-outline-secondary">
@@ -23,7 +23,7 @@
     <div class="row">
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm">
-                <div class="card-header bg-primary text-white p-0">
+                <div class="card-header text-white p-0" style="background-color: rgb(6, 71, 160);">
                     <div class="p-3">
                         <h5 class="mb-0">
                             <i class="fas fa-table me-2"></i>Посещаемость группы
@@ -35,13 +35,13 @@
                             <table class="table table-hover mb-0">
                                 <thead>
                                     <tr class="table-header-unified">
-                                        <th class="border-0">№</th>
-                                        <th class="border-0">Студент</th>
-                                        <th class="border-0">Статус</th>
-                                        <th class="border-0">Курс</th>
-                                        <th class="border-0">Примечания</th>
+                                        <th class="border-0" style="width: 5%;">№</th>
+                                        <th class="border-0" style="width: 35%;">Студент</th>
+                                        <th class="border-0" style="width: 20%;">Статус</th>
+                                        <th class="border-0" style="width: 20%;">Курс</th>
+                                        <th class="border-0" style="width: 20%;">Примечания</th>
                                         {% if current_user.role == 'teacher' %}
-                                            <th class="border-0">Действия</th>
+                                            <th class="border-0" style="width: 15%;">Действия</th>
                                         {% endif %}
                                     </tr>
                                 </thead>
@@ -143,7 +143,11 @@
                             <button class="btn btn-sm btn-outline-primary" onclick="changeMonth(-1)">
                                 <i class="fas fa-chevron-left"></i>
                             </button>
-                            <h6 class="mb-0">{{ current_month.strftime('%B %Y') }}</h6>
+                            <h6 class="mb-0">
+                                {% set months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                                               'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'] %}
+                                {{ months[current_month.month - 1] }} {{ current_month.year }}
+                            </h6>
                             <button class="btn btn-sm btn-outline-primary" onclick="changeMonth(1)">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
@@ -160,9 +164,15 @@
                                 <div class="calendar-cell">Вс</div>
                             </div>
                             
-                            {% set days_in_month = (current_month.replace(month=current_month.month + 1) - timedelta(days=1)).day %}
+                            {% if current_month.month == 12 %}
+                                {% set next_month = 1 %}
+                                {% set next_year = current_month.year + 1 %}
+                            {% else %}
+                                {% set next_month = current_month.month + 1 %}
+                                {% set next_year = current_month.year %}
+                            {% endif %}
+                            {% set days_in_month = (current_month.replace(year=next_year, month=next_month) - timedelta(days=1)).day %}
                             {% set first_day_of_week = (current_month.replace(day=1)).weekday() %}
-                            {% set first_day_of_week = (first_day_of_week + 1) % 7 %}
                             
                             <div class="calendar-body">
                                 {% for i in range(first_day_of_week) %}
@@ -173,11 +183,13 @@
                                     {% set current_date = current_month.replace(day=day) %}
                                     {% set is_selected = current_date.strftime('%Y-%m-%d') == selected_date %}
                                     {% set is_today = current_date.date() == today %}
-                                    {% set is_weekend = current_date.weekday() >= 5 %}
+                                    {% set day_of_week = current_date.weekday() %}
+                                    {% set is_weekend = day_of_week == 5 or day_of_week == 6 %}
+                                    {% set is_holiday = (current_date.month == 1 and day == 1) or (current_date.month == 1 and day == 7) or (current_date.month == 2 and day == 23) or (current_date.month == 3 and day == 8) or (current_date.month == 5 and day == 1) or (current_date.month == 5 and day == 9) or (current_date.month == 6 and day == 12) or (current_date.month == 11 and day == 4) %}
                                     
-                                    <div class="calendar-cell {% if is_selected %}selected{% endif %} {% if is_today %}today{% endif %} {% if is_weekend %}weekend{% endif %}"
+                                    <div class="calendar-cell {% if is_selected %}selected{% endif %} {% if is_today %}today{% endif %} {% if is_weekend %}weekend{% endif %} {% if is_holiday %}holiday{% endif %}"
                                          onclick="selectDate('{{ current_date.strftime('%Y-%m-%d') }}')"
-                                         title="{{ current_date.strftime('%d.%m.%Y') }}">
+                                         title="{{ current_date.strftime('%d.%m.%Y') }} ({{ ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][day_of_week] }})">
                                         {{ day }}
                                     </div>
                                 {% endfor %}
@@ -280,7 +292,13 @@
 }
 
 .calendar-cell.weekend {
-    color: #6c757d;
+    color: #dc3545;
+    font-weight: bold;
+}
+
+.calendar-cell.holiday {
+    color: #dc3545;
+    font-weight: bold;
 }
 
 .calendar-cell.empty {
@@ -302,6 +320,8 @@
     font-weight: 600;
     height: auto;
     line-height: 1.2;
+    background-color: rgb(6, 71, 160) !important;
+    background-image: none !important;
 }
 
 .card-header .table {
@@ -313,25 +333,55 @@
     text-align: center;
     vertical-align: middle;
     white-space: nowrap;
+    background-color: rgb(6, 71, 160) !important;
+    background-image: none !important;
+}
+
+.card-body .table tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border: none !important;
+    word-wrap: break-word;
+}
+
+.card-body .table tbody td:nth-child(1) {
+    width: 5%;
+    text-align: center;
+}
+
+.card-body .table tbody td:nth-child(2) {
+    width: 35%;
+}
+
+.card-body .table tbody td:nth-child(3) {
+    width: 20%;
+    text-align: center;
+}
+
+.card-body .table tbody td:nth-child(4) {
+    width: 20%;
+    text-align: center;
+}
+
+.card-body .table tbody td:nth-child(5) {
+    width: 20%;
+    text-align: center;
+}
+
+.card-body .table tbody td:nth-child(6) {
+    width: 15%;
+    text-align: center;
 }
 
 .card-body .table tbody tr:last-child td {
     border-bottom: none;
 }
 
-.card-body .table tbody td {
-    padding: 0.75rem;
-    vertical-align: middle;
-    border: none;
-}
-
 .card-body .table tbody tr:hover {
     background-color: rgba(0, 0, 0, 0.02);
 }
 
-.card-body .table tbody td {
-    border: none !important;
-}
+
 
 @media (max-width: 992px) {
     .mini-calendar {

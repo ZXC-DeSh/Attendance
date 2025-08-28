@@ -118,12 +118,14 @@
                             <option value="лабораторная">Лабораторная</option>
                             <option value="компьютерная">Компьютерная</option>
                             <option value="семинарская">Семинарская</option>
+                            <option value="конференц-зал">Конференц-зал</option>
+                            <option value="спортивный зал">Спортивный зал</option>
                         </select>
                     </div>
                     
                     <div class="mb-3">
                         <label for="capacity" class="form-label">Вместимость</label>
-                        <input type="number" class="form-control" id="capacity" min="1" max="100" required>
+                        <input type="number" class="form-control" id="capacity" min="1" max="500" required>
                     </div>
                     
                     <div class="mb-3">
@@ -173,12 +175,14 @@
                             <option value="лабораторная">Лабораторная</option>
                             <option value="компьютерная">Компьютерная</option>
                             <option value="семинарская">Семинарская</option>
+                            <option value="конференц-зал">Конференц-зал</option>
+                            <option value="спортивный зал">Спортивный зал</option>
                         </select>
                     </div>
                     
                     <div class="mb-3">
                         <label for="editCapacity" class="form-label">Вместимость</label>
-                        <input type="number" class="form-control" id="editCapacity" min="1" max="100" required>
+                        <input type="number" class="form-control" id="editCapacity" min="1" max="500" required>
                     </div>
                     
                     <div class="mb-3">
@@ -201,6 +205,37 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Функция для отображения уведомлений
+    function showNotification(message, type = 'success') {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        
+        // Вставляем уведомление в начало страницы
+        const container = document.querySelector('.container-fluid');
+        container.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        // Автоматически скрываем уведомление через 5 секунд
+        setTimeout(() => {
+            const alert = container.querySelector('.alert');
+            if (alert) {
+                alert.remove();
+            }
+        }, 5000);
+    }
+    
+    // Функция для перезагрузки таблицы аудиторий
+    function reloadPage() {
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    }
+    
+    // Создание новой аудитории
     document.getElementById('saveRoom').addEventListener('click', function() {
         const formData = {
             number: document.getElementById('roomNumber').value,
@@ -210,10 +245,47 @@ document.addEventListener('DOMContentLoaded', function() {
             is_active: document.getElementById('isActive').checked
         };
         
-        console.log('Добавление аудитории:', formData);
-        alert('Функция добавления аудитории будет реализована позже');
+        // Валидация формы
+        if (!formData.number || !formData.building || !formData.room_type || !formData.capacity) {
+            showNotification('Пожалуйста, заполните все обязательные поля', 'error');
+            return;
+        }
+        
+        if (formData.capacity < 1 || formData.capacity > 500) {
+            showNotification('Вместимость должна быть от 1 до 500 мест', 'error');
+            return;
+        }
+        
+        // Логируем отправляемые данные
+        console.log('Отправляем данные для создания аудитории:', formData);
+        
+        // Отправляем запрос на сервер
+        fetch('/admin/rooms/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addRoomModal'));
+                modal.hide();
+                document.getElementById('addRoomForm').reset();
+                reloadPage();
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            showNotification('Произошла ошибка при создании аудитории', 'error');
+        });
     });
     
+    // Открытие модального окна для редактирования
     document.querySelectorAll('.edit-room').forEach(btn => {
         btn.addEventListener('click', function() {
             const data = this.dataset;
@@ -229,9 +301,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Обновление аудитории
     document.getElementById('updateRoom').addEventListener('click', function() {
+        const roomId = document.getElementById('editRoomId').value;
         const formData = {
-            room_id: document.getElementById('editRoomId').value,
             number: document.getElementById('editRoomNumber').value,
             building: document.getElementById('editBuilding').value,
             room_type: document.getElementById('editRoomType').value,
@@ -239,18 +312,71 @@ document.addEventListener('DOMContentLoaded', function() {
             is_active: document.getElementById('editIsActive').checked
         };
         
-        console.log('Обновление аудитории:', formData);
-        alert('Функция обновления аудитории будет реализована позже');
+        // Валидация формы
+        if (!formData.number || !formData.building || !formData.room_type || !formData.capacity) {
+            showNotification('Пожалуйста, заполните все обязательные поля', 'error');
+            return;
+        }
+        
+        if (formData.capacity < 1 || formData.capacity > 500) {
+            showNotification('Вместимость должна быть от 1 до 500 мест', 'error');
+            return;
+        }
+        
+        // Логируем отправляемые данные
+        console.log('Отправляем данные для обновления аудитории:', formData);
+        
+        // Отправляем запрос на сервер
+        fetch(`/admin/rooms/${roomId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification(data.message, 'success');
+                const modal = bootstrap.Modal.getInstance(document.getElementById('editRoomModal'));
+                modal.hide();
+                reloadPage();
+            } else {
+                showNotification(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            showNotification('Произошла ошибка при обновлении аудитории', 'error');
+        });
     });
     
+    // Удаление аудитории
     document.querySelectorAll('.delete-room').forEach(btn => {
         btn.addEventListener('click', function() {
             const roomId = this.dataset.room;
             const roomNumber = this.dataset.number;
             
             if (confirm(`Вы уверены, что хотите удалить аудиторию ${roomNumber}?`)) {
-                console.log('Удаление аудитории:', roomId);
-                alert('Функция удаления аудитории будет реализована позже');
+                fetch(`/admin/rooms/${roomId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        reloadPage();
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка:', error);
+                    showNotification('Произошла ошибка при удалении аудитории', 'error');
+                });
             }
         });
     });
